@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { authHeaders, getApiUrl } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
@@ -87,7 +87,7 @@ export const useMyListings = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchMyListings = async () => {
+  const fetchMyListings = useCallback(async () => {
     const token = localStorage.getItem("accessToken");
     if (!token) { navigate("/signin"); return; }
 
@@ -123,7 +123,7 @@ export const useMyListings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   return { userListings, loading, error, fetchMyListings };
 };
@@ -136,7 +136,7 @@ export const useMyBids = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchMyBids = async () => {
+  const fetchMyBids = useCallback(async () => {
     const token = localStorage.getItem("accessToken");
     if (!token) { navigate("/signin"); return; }
 
@@ -181,7 +181,7 @@ export const useMyBids = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   return { userBids, loading, error, fetchMyBids };
 };

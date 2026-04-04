@@ -27,12 +27,12 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (user) fetchMyListings();
-  }, [user]);
+  }, [user, fetchMyListings]);
 
   const handleTabChange = (tab: ActiveTab) => {
+    if (tab === "listings" && activeTab !== "listings") fetchMyListings();
+    if (tab === "bids" && activeTab !== "bids") fetchMyBids();
     setActiveTab(tab);
-    if (tab === "listings") fetchMyListings();
-    if (tab === "bids") fetchMyBids();
   };
 
   if (loading) return <div className="profile-page">Loading profile...</div>;
