@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiErrorMessage, authHeaders, getApiUrl } from "../../lib/api";
 import "./start_selling.css";
 
 interface StartSellingForm {
@@ -171,7 +172,26 @@ const StartSelling: React.FC = () => {
 
       const images = await convertPhotosToBase64(photos);
 
-      const requestBody: any = {
+      type CreateListingBody = {
+        title: string;
+        subtitle: string;
+        description: string;
+        category: string;
+        subcategory: string;
+        condition: string;
+        brand: string;
+        color: string;
+        size: string;
+        images: string[];
+        starting_bid: number;
+        auction_start_time: string;
+        auction_end_time: string;
+        location: string;
+        notes: string;
+        buy_now_price?: number;
+      };
+
+      const requestBody: CreateListingBody = {
         title: form.title.trim(),
         subtitle: form.subtitle.trim(),
         description: form.description.trim(),
@@ -193,31 +213,24 @@ const StartSelling: React.FC = () => {
         requestBody.buy_now_price = parseFloat(form.buyNowPrice);
       }
 
-      const rawApiBase = (import.meta.env.VITE_API_BASE as string) || '';
-      const apiBase = rawApiBase.replace(/['"]+/g, '').trim();
-      const listingsUrl = apiBase ? `${apiBase.replace(/\/$/, '')}/api/createlisting` : '/api/createlisting';
-
-      const response = await fetch(listingsUrl, {
+      const response = await fetch(getApiUrl("/api/createlisting"), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: authHeaders(token),
         body: JSON.stringify(requestBody),
       });
 
       const contentType = response.headers.get("content-type");
-      let data: any = {};
-      
+      let data: Record<string, unknown> = {};
+
       if (contentType && contentType.toLowerCase().includes("application/json")) {
-        data = await response.json();
+        data = (await response.json()) as Record<string, unknown>;
       } else {
         const textData = await response.text();
         throw new Error(`Server returned non-JSON response (${response.status}): ${textData.substring(0, 100)}`);
       }
 
       if (!response.ok) {
-        throw new Error(data.error || data.message || `Failed to create listing (${response.status})`);
+        throw new Error(apiErrorMessage(data, `Failed to create listing (${response.status})`));
       }
 
       alert(`Listing created successfully!`);

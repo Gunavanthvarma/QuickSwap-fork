@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { authHeaders, getApiUrl } from "../../lib/api";
+import { formatCurrency } from "../../lib/format";
 import "./auction_detail.css";
 
 interface SingleListingResponse {
@@ -26,19 +28,6 @@ interface SingleListingResponse {
   condition?: string;
   brand?: string;
 }
-
-const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount || 0);
-
-const getApiUrl = (path: string): string => {
-  const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-  const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-  return apiBase ? `${apiBase.replace(/\/$/, "")}${path}` : path;
-};
 
 const AuctionDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -69,16 +58,9 @@ const AuctionDetail: React.FC = () => {
 
       try {
         const token = localStorage.getItem("accessToken");
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-
         const response = await fetch(getApiUrl(`/api/listing?id=${encodeURIComponent(listingId)}`), {
           method: "GET",
-          headers,
+          headers: authHeaders(token),
         });
 
         const payload = await response.json().catch(() => ({}));

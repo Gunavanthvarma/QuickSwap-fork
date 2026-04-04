@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { authHeaders, getApiUrl } from "../../lib/api";
+import { formatCurrency } from "../../lib/format";
 import type {
   ProfileResponse,
   EditFormState,
@@ -8,25 +10,6 @@ import type {
   MyListingApiItem,
   MyBidsApiItem,
 } from "./Profile.types";
-
-// ─── Utils ────────────────────────────────────────────────────────────────────
-
-export const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount || 0);
-
-export const getApiUrl = (path: string): string => {
-  const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-  const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-  if (!apiBase) return path;
-  
-  const normalizedBase = apiBase.replace(/\/$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${normalizedBase}${normalizedPath}`;
-};
 
 // ─── useProfile ───────────────────────────────────────────────────────────────
 
@@ -114,7 +97,7 @@ export const useMyListings = () => {
     try {
       const response = await fetch(getApiUrl("/api/mylistings"), {
         method: "GET",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: authHeaders(token),
       });
 
       const payload = await response.json().catch(() => ({}));
@@ -163,7 +146,7 @@ export const useMyBids = () => {
     try {
       const response = await fetch(getApiUrl("/api/mybids"), {
         method: "GET",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: authHeaders(token),
       });
 
       const payload = await response.json().catch(() => ({}));

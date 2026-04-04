@@ -5,7 +5,7 @@ import LandingPage from './components/landingPage/landing_page'
 import AuctionDetail from './components/auction/auction_detail'
 import StartSelling from './components/auction/start_selling'
 import LoggedInLandingPage from "./components/landingPage/loggedin_landing_page";
-import ProfilePage from './components/profilePage/ProfilePage'
+import ProfilePage from './components/profilePage/Profilepage'
 import ExploreListingsPage from './components/landingPage/explore_listings_page'
 
 function App() {

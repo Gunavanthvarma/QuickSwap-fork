@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../landingPage/loggedin_landing_page.css"; 
+import { apiErrorMessage, authHeaders, getApiUrl } from "../../lib/api";
+import { formatCurrency } from "../../lib/format";
+import "../landingPage/loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
 import type { StripItem } from "./top_listings_strip";
 
@@ -29,19 +31,6 @@ const LoggedInLandingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(amount || 0);
-
-  const getApiUrl = (path: string) => {
-    const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-    const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-    return apiBase ? `${apiBase.replace(/\/$/, "")}${path}` : path;
-  };
-
   const mapToStripItems = (items: TopListingApiItem[] | null, tag: string): StripItem[] => {
     if (!Array.isArray(items)) return [];
 
@@ -61,14 +50,9 @@ const LoggedInLandingPage: React.FC = () => {
 
       try {
         const token = localStorage.getItem("accessToken");
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-
         const response = await fetch(getApiUrl("/api/toplistings"), {
           method: "GET",
-          headers,
+          headers: authHeaders(token),
         });
 
         const payload: TopListingsResponse = await response.json().catch(() => ({
@@ -78,8 +62,7 @@ const LoggedInLandingPage: React.FC = () => {
         }));
 
         if (!response.ok) {
-          const message = (payload as any)?.error || (payload as any)?.message || "Failed to fetch top listings";
-          throw new Error(message);
+          throw new Error(apiErrorMessage(payload, "Failed to fetch top listings"));
         }
 
         setTrendingItems(mapToStripItems(payload.trending_now, "Trending"));

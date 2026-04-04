@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiErrorMessage, authHeaders, getApiUrl } from "../../lib/api";
+import { formatCurrency } from "../../lib/format";
 import "../landingPage/loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
 import type { StripItem } from "./top_listings_strip";
@@ -36,19 +38,6 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
     return "Latest";
   }, [mode]);
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(amount || 0);
-
-  const getApiUrl = (path: string) => {
-    const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-    const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-    return apiBase ? `${apiBase.replace(/\/$/, "")}${path}` : path;
-  };
-
   const mapToStripItems = (list: TopListingApiItem[] | null, tag: string): StripItem[] => {
     if (!Array.isArray(list)) return [];
 
@@ -68,14 +57,9 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
 
       try {
         const token = localStorage.getItem("accessToken");
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-
         const response = await fetch(getApiUrl("/api/toplistings"), {
           method: "GET",
-          headers,
+          headers: authHeaders(token),
         });
 
         const payload: TopListingsResponse = await response.json().catch(() => ({
@@ -85,8 +69,7 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
         }));
 
         if (!response.ok) {
-          const message = (payload as any)?.error || (payload as any)?.message || "Failed to fetch listings";
-          throw new Error(message);
+          throw new Error(apiErrorMessage(payload, "Failed to fetch listings"));
         }
 
         if (mode === "trending") {

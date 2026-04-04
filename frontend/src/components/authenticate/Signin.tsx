@@ -13,7 +13,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import AuthLayout from './AuthLayout';
 import './authenticate.css';
-import { useNavigate } from 'react-router-dom'; 
+import { authHeaders, getApiUrl } from '../../lib/api';
 
 interface SignInFormData {
   email: string;
@@ -46,8 +46,6 @@ interface AuthResponse {
 }
 
 const Signin: React.FC = () => {
-  const navigate = useNavigate(); 
-
   const [formData, setFormData] = useState<SignInFormData>({
     email: '',
     password: '',
@@ -97,15 +95,9 @@ const Signin: React.FC = () => {
     try {
       setLoading(true);
       setApiError(null);
-      const apiBase = (import.meta.env.VITE_API_BASE as string) || '';
-      const loginUrl = apiBase
-        ? `${apiBase.replace(/\/$/, '')}/api/auth/login`
-        : '/api/auth/login';
-      const response = await fetch(loginUrl, {
+      const response = await fetch(getApiUrl('/api/auth/login'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           email: formData.email.trim(),
           password: formData.password,
@@ -138,16 +130,10 @@ const Signin: React.FC = () => {
       localStorage.setItem('accessToken', access_token);
 
       // Optional: store user
-      const profileUrl = apiBase
-        ? `${apiBase.replace(/\/$/, '')}/api/profile`
-        : '/api/profile';
-
       try {
-        const profileRes = await fetch(profileUrl, {
+        const profileRes = await fetch(getApiUrl('/api/profile'), {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${access_token}`
-          }
+          headers: authHeaders(access_token),
         });
         if (profileRes.ok) {
           const profileData = await profileRes.json();
@@ -155,15 +141,15 @@ const Signin: React.FC = () => {
         } else {
           localStorage.setItem('user', JSON.stringify(user));
         }
-      } catch (err) {
+      } catch {
         localStorage.setItem('user', JSON.stringify(user));
       }
 
       // Redirect (example)
       window.location.href = '/';
 
-    } catch (err: any) {
-      setApiError(err.message);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
