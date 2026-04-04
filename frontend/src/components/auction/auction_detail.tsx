@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { authHeaders, getApiUrl } from "../../lib/api";
+import { apiErrorMessage, authHeaders, getApiUrl, isRecord } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
 import "./auction_detail.css";
 
@@ -63,16 +63,23 @@ const AuctionDetail: React.FC = () => {
           headers: authHeaders(token),
         });
 
-        const payload = await response.json().catch(() => ({}));
+        const rawJson: unknown = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(payload?.error || payload?.message || "Failed to fetch listing");
+          throw new Error(apiErrorMessage(rawJson, "Failed to fetch listing"));
         }
 
+        if (!isRecord(rawJson)) {
+          throw new Error("Invalid listing response");
+        }
+
+        const imagesRaw = rawJson.images;
+        const images = Array.isArray(imagesRaw)
+          ? imagesRaw.filter((img): img is string => typeof img === "string")
+          : [];
+
         const normalized: SingleListingResponse = {
-          ...payload,
-          images: Array.isArray(payload.images)
-            ? payload.images.filter((img: unknown) => typeof img === "string")
-            : [],
+          ...(rawJson as unknown as SingleListingResponse),
+          images,
         };
 
         setListing(normalized);

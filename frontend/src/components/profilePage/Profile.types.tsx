@@ -16,6 +16,20 @@ export interface MyListingApiItem {
   status: string;
 }
 
+/** JSON body from GET /api/mylistings */
+export interface MyListingsApiResponse {
+  listings?: MyListingApiItem[];
+  error?: string;
+  message?: string;
+}
+
+/** JSON body from GET /api/mybids when wrapped in an object */
+export interface MyBidsApiResponse {
+  bids?: MyBidsApiItem[];
+  error?: string;
+  message?: string;
+}
+
 export interface MyBidsApiItem {
   id: string;
   listing_id: string;

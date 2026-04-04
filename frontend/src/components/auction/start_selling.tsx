@@ -236,7 +236,7 @@ const StartSelling: React.FC = () => {
       alert(`Listing created successfully!`);
       navigate('/profile');
       
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred while creating the listing');
       console.error('Error creating listing:', err);
     } finally {

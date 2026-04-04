@@ -15,6 +15,7 @@ import AuthLayout from './AuthLayout';
 import './authenticate.css';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
+import type { ProfileResponse } from '../profilePage/Profile.types';
 import { authHeaders, getApiUrl } from '../../lib/api';
 
 interface SignInFormData {
@@ -109,7 +110,8 @@ const Signin: React.FC = () => {
         }),
       });
 
-      const data: AuthResponse = await response.json();
+      const raw: unknown = await response.json();
+      const data = raw as AuthResponse;
 
       if (!response.ok || data.error) {
         throw new Error(data.error || 'Login failed');
@@ -140,7 +142,8 @@ const Signin: React.FC = () => {
           headers: authHeaders(access_token),
         });
         if (profileRes.ok) {
-          const profileData = await profileRes.json();
+          const profileRaw: unknown = await profileRes.json();
+          const profileData = profileRaw as ProfileResponse;
           localStorage.setItem('user', JSON.stringify(profileData));
         } else {
           localStorage.setItem('user', JSON.stringify(user));

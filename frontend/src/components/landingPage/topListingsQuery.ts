@@ -37,13 +37,12 @@ export async function fetchTopListings(): Promise<TopListingsResponse> {
     headers: authHeaders(token),
   });
 
-  const payload = (await response.json().catch(() => emptyPayload)) as TopListingsResponse;
-
+  const raw: unknown = await response.json().catch(() => emptyPayload);
   if (!response.ok) {
-    throw new Error(apiErrorMessage(payload, "Failed to fetch top listings"));
+    throw new Error(apiErrorMessage(raw, "Failed to fetch top listings"));
   }
 
-  return payload;
+  return raw as TopListingsResponse;
 }
 
 export function mapTopListingsToStripItems(

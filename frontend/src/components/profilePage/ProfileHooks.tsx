@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { authHeaders, getApiUrl } from "../../lib/api";
+import { readUserFromStorage } from "../../auth/auth-context";
+import { apiErrorMessage, authHeaders, getApiUrl, isRecord } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
 import type {
   ProfileResponse,
@@ -9,6 +10,8 @@ import type {
   BidCardItem,
   MyListingApiItem,
   MyBidsApiItem,
+  MyListingsApiResponse,
+  MyBidsApiResponse,
 } from "./Profile.types";
 
 // ─── useProfile ───────────────────────────────────────────────────────────────
@@ -29,13 +32,19 @@ export const useProfile = () => {
   useEffect(() => {
     try {
       const token = localStorage.getItem("accessToken");
-      if (!token) { navigate("/signin"); return; }
+      if (!token) {
+        navigate("/signin");
+        return;
+      }
 
-      const userStr = localStorage.getItem("user");
-      if (!userStr) { navigate("/signin"); return; }
+      const parsed = readUserFromStorage();
+      if (!parsed) {
+        navigate("/signin");
+        return;
+      }
 
-      setUser(JSON.parse(userStr));
-    } catch (err) {
+      setUser(parsed);
+    } catch (err: unknown) {
       console.error("Failed to parse user from local storage:", err);
       setError("Failed to load profile");
       navigate("/signin");
@@ -100,9 +109,12 @@ export const useMyListings = () => {
         headers: authHeaders(token),
       });
 
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || payload.message || "Failed to fetch listings");
+      const rawJson: unknown = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(apiErrorMessage(rawJson, "Failed to fetch listings"));
+      }
 
+      const payload = rawJson as MyListingsApiResponse;
       const listings: ListingCardItem[] = Array.isArray(payload.listings)
         ? payload.listings.map((item: MyListingApiItem) => ({
             id: item.listing_id,
@@ -116,7 +128,7 @@ export const useMyListings = () => {
         : [];
 
       setUserListings(listings);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("[API] /api/mylistings error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch listings");
       setUserListings([]);
@@ -149,12 +161,17 @@ export const useMyBids = () => {
         headers: authHeaders(token),
       });
 
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || payload.message || "Failed to fetch bids");
+      const rawJson: unknown = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(apiErrorMessage(rawJson, "Failed to fetch bids"));
+      }
 
-      const raw: MyBidsApiItem[] = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload.bids) ? payload.bids : [];
+      let raw: MyBidsApiItem[] = [];
+      if (Array.isArray(rawJson)) {
+        raw = rawJson as MyBidsApiItem[];
+      } else if (isRecord(rawJson) && Array.isArray(rawJson.bids)) {
+        raw = (rawJson as MyBidsApiResponse).bids ?? [];
+      }
 
       const bids: BidCardItem[] = raw.map((item) => {
         const normalized = item.label?.toLowerCase();
@@ -174,7 +191,7 @@ export const useMyBids = () => {
       });
 
       setUserBids(bids);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("[API] /api/mybids error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch bids");
       setUserBids([]);

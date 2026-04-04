@@ -17,6 +17,7 @@ import AuthLayout from './AuthLayout';
 import './authenticate.css';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
+import type { ProfileResponse } from '../profilePage/Profile.types';
 import { authHeaders, getApiUrl } from '../../lib/api';
 
 interface FormData {
@@ -169,7 +170,8 @@ const Signup: React.FC = () => {
             headers: authHeaders(access_token),
           });
           if (profileRes.ok) {
-            const profileData = await profileRes.json();
+            const profileRaw: unknown = await profileRes.json();
+            const profileData = profileRaw as ProfileResponse;
             localStorage.setItem('user', JSON.stringify(profileData));
           } else {
             localStorage.setItem('user', JSON.stringify(user));
