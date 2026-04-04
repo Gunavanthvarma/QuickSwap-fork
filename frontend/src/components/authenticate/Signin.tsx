@@ -13,6 +13,8 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import AuthLayout from './AuthLayout';
 import './authenticate.css';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/useAuth';
 import { authHeaders, getApiUrl } from '../../lib/api';
 
 interface SignInFormData {
@@ -46,6 +48,8 @@ interface AuthResponse {
 }
 
 const Signin: React.FC = () => {
+  const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [formData, setFormData] = useState<SignInFormData>({
     email: '',
     password: '',
@@ -145,8 +149,8 @@ const Signin: React.FC = () => {
         localStorage.setItem('user', JSON.stringify(user));
       }
 
-      // Redirect (example)
-      window.location.href = '/';
+      refreshUser();
+      navigate('/', { replace: true });
 
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Login failed');

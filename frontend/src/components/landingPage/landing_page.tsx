@@ -1,5 +1,6 @@
 // LandingPage.tsx
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/useAuth";
 import "./landing_page.css";
 // import Signup from './components/authenticate/Signup';
 
@@ -40,27 +41,17 @@ const mockListings = [
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  
-  const isLoggedIn = !!localStorage.getItem("user");
-  const handleLogout = () => {
-    // Clear auth-related data
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("accessTokenExpiry");
-    localStorage.removeItem("user");
+  const { isAuthenticated, logout } = useAuth();
 
-    // Navigate back to landing page
-    navigate("/", { replace: true });
+  const handleLogout = () => {
+    logout();
   };
 
   const handleStartSelling = () => {
-    if (!isLoggedIn) {
-      // not logged in → go to sign in
+    if (!isAuthenticated) {
       navigate("/signin");
       return;
     }
-    // logged in: later this can go to /sell; for now maybe /profile
-    // navigate("/sell");
     navigate("/start_selling");
   };
 
@@ -74,13 +65,13 @@ const LandingPage = () => {
         <nav className="navbar-links">
           <a href="#features">How it works</a>
           <a href="#auctions">Live auctions</a>
-          {!isLoggedIn && (<a href="#about">Why Quickswap</a>)}
+          {!isAuthenticated && (<a href="#about">Why Quickswap</a>)}
         </nav>
         <div className="navbar-actions">
           <button className="btn primary" onClick={handleStartSelling}>
             Start selling
           </button>
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <>
               <button className="btn ghost" onClick={() => navigate("/profile")}>
                 Profile
@@ -209,7 +200,7 @@ const LandingPage = () => {
       </section>
 
       {/* About / CTA */}
-      {!isLoggedIn && (
+      {!isAuthenticated && (
       <section id="about" className="about">
         <div className="about-inner">
           <div>

@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/useAuth";
 import "../landingPage/loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
 import {
@@ -9,7 +10,7 @@ import {
 
 const LoggedInLandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const isLoggedIn = !!localStorage.getItem("user");
+  const { isAuthenticated, logout } = useAuth();
   const { data, isPending, isError, error } = useTopListingsQuery();
 
   const trendingItems = useMemo(
@@ -28,15 +29,11 @@ const LoggedInLandingPage: React.FC = () => {
   const fetchError = isError ? (error instanceof Error ? error.message : "Failed to fetch top listings") : null;
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("accessTokenExpiry");
-    localStorage.removeItem("user");
-    window.location.href = "/";
+    logout();
   };
 
   const handleStartSelling = () => {
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
       navigate("/signin");
       return;
     }
@@ -54,7 +51,7 @@ const LoggedInLandingPage: React.FC = () => {
           <button className="btn primary" onClick={handleStartSelling}>
             Start selling
           </button>
-          {isLoggedIn && (
+          {isAuthenticated && (
             <>
               <button
                 className="btn ghost"
