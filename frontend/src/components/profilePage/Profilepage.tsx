@@ -26,7 +26,10 @@ const ProfilePage: React.FC = () => {
   const { userBids, loading: bidsLoading, error: bidsError, fetchMyBids } = useMyBids();
 
   useEffect(() => {
-    if (user) fetchMyListings();
+    if (!user) return;
+    const ac = new AbortController();
+    void fetchMyListings({ signal: ac.signal });
+    return () => ac.abort();
   }, [user, fetchMyListings]);
 
   const handleTabChange = (tab: ActiveTab) => {

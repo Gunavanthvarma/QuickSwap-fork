@@ -28,6 +28,12 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** True when `fetch` (or a reader) was aborted via `AbortController`. */
+export function isFetchAborted(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  return err instanceof Error && err.name === "AbortError";
+}
+
 export function apiErrorMessage(payload: unknown, fallback: string): string {
   if (payload && typeof payload === "object") {
     const p = payload as ApiErrorPayload;

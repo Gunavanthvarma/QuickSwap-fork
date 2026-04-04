@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { apiErrorMessage, isRecord } from "../api";
+import { apiErrorMessage, isFetchAborted, isRecord } from "../api";
 
 describe("isRecord", () => {
   it("returns false for null and undefined", () => {
@@ -16,6 +16,18 @@ describe("isRecord", () => {
   it("returns true for plain objects", () => {
     expect(isRecord({})).toBe(true);
     expect(isRecord({ a: 1 })).toBe(true);
+  });
+});
+
+describe("isFetchAborted", () => {
+  it("detects AbortError", () => {
+    const err = new Error("aborted");
+    err.name = "AbortError";
+    expect(isFetchAborted(err)).toBe(true);
+  });
+
+  it("returns false for other errors", () => {
+    expect(isFetchAborted(new Error("fail"))).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { readUserFromStorage } from "../../auth/auth-context";
-import { apiErrorMessage, authHeaders, getApiUrl, isRecord } from "../../lib/api";
+import { apiErrorMessage, authHeaders, getApiUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
 import type {
   ProfileResponse,
@@ -13,6 +13,10 @@ import type {
   MyListingsApiResponse,
   MyBidsApiResponse,
 } from "./Profile.types";
+
+export type ProfileFetchOptions = {
+  signal?: AbortSignal;
+};
 
 // ─── useProfile ───────────────────────────────────────────────────────────────
 
@@ -96,7 +100,8 @@ export const useMyListings = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchMyListings = useCallback(async () => {
+  const fetchMyListings = useCallback(async (options?: ProfileFetchOptions) => {
+    const { signal } = options ?? {};
     const token = localStorage.getItem("accessToken");
     if (!token) { navigate("/signin"); return; }
 
@@ -107,6 +112,7 @@ export const useMyListings = () => {
       const response = await fetch(getApiUrl("/api/mylistings"), {
         method: "GET",
         headers: authHeaders(token),
+        signal,
       });
 
       const rawJson: unknown = await response.json().catch(() => ({}));
@@ -129,11 +135,14 @@ export const useMyListings = () => {
 
       setUserListings(listings);
     } catch (err: unknown) {
+      if (isFetchAborted(err)) return;
       console.error("[API] /api/mylistings error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch listings");
       setUserListings([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [navigate]);
 
@@ -148,7 +157,8 @@ export const useMyBids = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchMyBids = useCallback(async () => {
+  const fetchMyBids = useCallback(async (options?: ProfileFetchOptions) => {
+    const { signal } = options ?? {};
     const token = localStorage.getItem("accessToken");
     if (!token) { navigate("/signin"); return; }
 
@@ -159,6 +169,7 @@ export const useMyBids = () => {
       const response = await fetch(getApiUrl("/api/mybids"), {
         method: "GET",
         headers: authHeaders(token),
+        signal,
       });
 
       const rawJson: unknown = await response.json().catch(() => ({}));
@@ -192,11 +203,14 @@ export const useMyBids = () => {
 
       setUserBids(bids);
     } catch (err: unknown) {
+      if (isFetchAborted(err)) return;
       console.error("[API] /api/mybids error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch bids");
       setUserBids([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [navigate]);
 

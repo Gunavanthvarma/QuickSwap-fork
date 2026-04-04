@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { apiErrorMessage, authHeaders, getApiUrl, isRecord } from "../../lib/api";
+import { apiErrorMessage, authHeaders, getApiUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
 import "./auction_detail.css";
 
@@ -46,6 +46,9 @@ const AuctionDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const ac = new AbortController();
+    const { signal } = ac;
+
     const fetchListing = async () => {
       if (!listingId) {
         setError("Listing ID is missing.");
@@ -61,6 +64,7 @@ const AuctionDetail: React.FC = () => {
         const response = await fetch(getApiUrl(`/api/listing?id=${encodeURIComponent(listingId)}`), {
           method: "GET",
           headers: authHeaders(token),
+          signal,
         });
 
         const rawJson: unknown = await response.json().catch(() => ({}));
@@ -85,14 +89,18 @@ const AuctionDetail: React.FC = () => {
         setListing(normalized);
         setSelectedImage(normalized.image || normalized.images[0] || "");
       } catch (err: unknown) {
+        if (isFetchAborted(err)) return;
         setError(err instanceof Error ? err.message : "Failed to fetch listing");
         setListing(null);
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchListing();
+    void fetchListing();
+    return () => ac.abort();
   }, [listingId]);
 
   if (loading) {
