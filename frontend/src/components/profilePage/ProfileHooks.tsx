@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { readUserFromStorage } from "../../auth/auth-context";
+import { useSignInRedirect } from "../../auth/useSignInRedirect";
 import { apiErrorMessage, authHeaders, getApiUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
 import type {
@@ -31,19 +31,19 @@ export const useProfile = () => {
     mobile: "",
   });
 
-  const navigate = useNavigate();
+  const redirectToSignin = useSignInRedirect();
 
   useEffect(() => {
     try {
       const token = localStorage.getItem("accessToken");
       if (!token) {
-        navigate("/signin");
+        redirectToSignin();
         return;
       }
 
       const parsed = readUserFromStorage();
       if (!parsed) {
-        navigate("/signin");
+        redirectToSignin();
         return;
       }
 
@@ -51,11 +51,11 @@ export const useProfile = () => {
     } catch (err: unknown) {
       console.error("Failed to parse user from local storage:", err);
       setError("Failed to load profile");
-      navigate("/signin");
+      redirectToSignin();
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [redirectToSignin]);
 
   const handleEditOpen = () => {
     if (user) {
@@ -98,12 +98,15 @@ export const useMyListings = () => {
   const [userListings, setUserListings] = useState<ListingCardItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const redirectToSignin = useSignInRedirect();
 
   const fetchMyListings = useCallback(async (options?: ProfileFetchOptions) => {
     const { signal } = options ?? {};
     const token = localStorage.getItem("accessToken");
-    if (!token) { navigate("/signin"); return; }
+    if (!token) {
+      redirectToSignin();
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -144,7 +147,7 @@ export const useMyListings = () => {
         setLoading(false);
       }
     }
-  }, [navigate]);
+  }, [redirectToSignin]);
 
   return { userListings, loading, error, fetchMyListings };
 };
@@ -155,12 +158,15 @@ export const useMyBids = () => {
   const [userBids, setUserBids] = useState<BidCardItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const redirectToSignin = useSignInRedirect();
 
   const fetchMyBids = useCallback(async (options?: ProfileFetchOptions) => {
     const { signal } = options ?? {};
     const token = localStorage.getItem("accessToken");
-    if (!token) { navigate("/signin"); return; }
+    if (!token) {
+      redirectToSignin();
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -212,7 +218,7 @@ export const useMyBids = () => {
         setLoading(false);
       }
     }
-  }, [navigate]);
+  }, [redirectToSignin]);
 
   return { userBids, loading, error, fetchMyBids };
 };

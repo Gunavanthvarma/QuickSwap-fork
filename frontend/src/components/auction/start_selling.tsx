@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useSignInRedirect } from "../../auth/useSignInRedirect";
 import { apiErrorMessage, authHeaders, getApiUrl } from "../../lib/api";
 import "./start_selling.css";
 
@@ -96,6 +97,7 @@ const PhotoPreview: React.FC<PhotoPreviewProps> = ({ file, onRemove, disabled })
 
 const StartSelling: React.FC = () => {
   const navigate = useNavigate();
+  const redirectToSignin = useSignInRedirect();
 
   const [form, setForm] = useState<StartSellingForm>(() => ({ ...initialSellForm }));
 
@@ -179,7 +181,8 @@ const StartSelling: React.FC = () => {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
-        throw new Error("Authentication required. Please log in.");
+        redirectToSignin();
+        return;
       }
 
       if (!form.title.trim() || !form.description.trim() || !form.category || !form.endTime || !form.locationCity.trim()) {

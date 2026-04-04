@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -16,6 +16,7 @@ import AuthLayout from './AuthLayout';
 import './authenticate.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
+import { getSafeReturnPath, type SigninRedirectState } from '../../auth/signinRedirect';
 import type { ProfileResponse } from '../profilePage/Profile.types';
 import { authHeaders, getApiUrl } from '../../lib/api';
 
@@ -49,14 +50,10 @@ interface AuthResponse {
   msg?: string;
 }
 
-type SigninLocationState = {
-  signupSuccessMessage?: string;
-};
-
 const Signin: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { refreshUser } = useAuth();
+  const { refreshUser, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState<SignInFormData>({
     email: '',
     password: '',
@@ -67,12 +64,20 @@ const Signin: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const signupSuccessFromNav = (location.state as SigninLocationState | null)?.signupSuccessMessage;
+  const navState = location.state as SigninRedirectState | null;
+  const signupSuccessFromNav = navState?.signupSuccessMessage;
   const [signupBannerDismissed, setSignupBannerDismissed] = useState(false);
   const showSignupSuccess =
     typeof signupSuccessFromNav === 'string' &&
     signupSuccessFromNav.length > 0 &&
     !signupBannerDismissed;
+
+  useEffect(() => {
+    if (!isAuthenticated || location.pathname !== '/signin') return;
+    navigate(getSafeReturnPath(location.state as SigninRedirectState | null), {
+      replace: true,
+    });
+  }, [isAuthenticated, location.pathname, location.state, navigate]);
 
   const handleInputChange = (field: keyof SignInFormData) => (
     event: React.ChangeEvent<HTMLInputElement>
@@ -165,7 +170,9 @@ const Signin: React.FC = () => {
       }
 
       refreshUser();
-      navigate('/', { replace: true });
+      navigate(getSafeReturnPath(location.state as SigninRedirectState | null), {
+        replace: true,
+      });
 
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Login failed');

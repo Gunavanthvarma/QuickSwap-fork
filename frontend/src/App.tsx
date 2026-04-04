@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
+import { ProtectedRoute } from './auth/ProtectedRoute'
 import { useAuth } from './auth/useAuth'
 
 const LandingPage = lazy(() => import('./components/landingPage/landing_page'))
@@ -35,6 +36,10 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageLoading />}>
       <Routes>
+        {/*
+          Public: /, /signin, /signup, /auction, /auction/:id, /explore/*
+          Protected: /profile, /start_selling (via ProtectedRoute → /signin?state.from)
+        */}
         <Route
           path="/"
           element={isAuthenticated ? <LoggedInLandingPage /> : <LandingPage />}
@@ -43,14 +48,28 @@ function AppRoutes() {
         <Route path="/signin" element={<Signin />} />
         <Route path="/signup" element={<Signup />} />
 
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/auction" element={<AuctionDetail />} />
         <Route path="/auction/:id" element={<AuctionDetail />} />
         <Route path="/explore/trending" element={<ExploreListingsPage mode="trending" />} />
         <Route path="/explore/ending-soon" element={<ExploreListingsPage mode="ending-soon" />} />
         <Route path="/explore/starting-soon" element={<ExploreListingsPage mode="starting-soon" />} />
 
-        <Route path="/start_selling" element={<StartSelling />} />
+        <Route
+          path="/start_selling"
+          element={
+            <ProtectedRoute>
+              <StartSelling />
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
