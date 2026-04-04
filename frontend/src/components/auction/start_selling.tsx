@@ -1,7 +1,7 @@
 // src/components/sell/StartSelling.tsx
 import React, { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiErrorMessage, authHeaders, getApiUrl } from "../../lib/api";
 import "./start_selling.css";
 
@@ -22,6 +22,34 @@ interface StartSellingForm {
   endTime: string;
   pickupNotes: string;
 }
+
+function readCreatedListingId(data: Record<string, unknown>): string | null {
+  const lid = data.listing_id;
+  if (typeof lid === "string" && lid.trim()) return lid.trim();
+  if (typeof lid === "number" && Number.isFinite(lid)) return String(lid);
+  const id = data.id;
+  if (typeof id === "string" && id.trim()) return id.trim();
+  if (typeof id === "number" && Number.isFinite(id)) return String(id);
+  return null;
+}
+
+const initialSellForm: StartSellingForm = {
+  title: "",
+  subtitle: "",
+  description: "",
+  category: "",
+  subcategory: "",
+  condition: "used_good",
+  brand: "",
+  color: "",
+  size: "",
+  locationCity: "",
+  startingBid: "",
+  buyNowPrice: "",
+  startTime: "",
+  endTime: "",
+  pickupNotes: "",
+};
 
 const subcategoriesByCategory: Record<string, string[]> = {
   electronics: ["Mobile phones", "Laptops", "Headphones", "Cameras", "Gaming consoles"],
@@ -69,27 +97,21 @@ const PhotoPreview: React.FC<PhotoPreviewProps> = ({ file, onRemove, disabled })
 const StartSelling: React.FC = () => {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState<StartSellingForm>({
-    title: "",
-    subtitle: "",
-    description: "",
-    category: "",
-    subcategory: "",
-    condition: "used_good",
-    brand: "",
-    color: "",
-    size: "",
-    locationCity: "",
-    startingBid: "",
-    buyNowPrice: "",
-    startTime: "",
-    endTime: "",
-    pickupNotes: "",
-  });
+  const [form, setForm] = useState<StartSellingForm>(() => ({ ...initialSellForm }));
 
   const [photos, setPhotos] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>("");
+  const [listingPublished, setListingPublished] = useState(false);
+  const [createdListingId, setCreatedListingId] = useState<string | null>(null);
+
+  const startAnotherListing = () => {
+    setForm({ ...initialSellForm });
+    setPhotos([]);
+    setListingPublished(false);
+    setCreatedListingId(null);
+    setError("");
+  };
 
   const handleChange =
     (field: keyof StartSellingForm) =>
@@ -233,9 +255,8 @@ const StartSelling: React.FC = () => {
         throw new Error(apiErrorMessage(data, `Failed to create listing (${response.status})`));
       }
 
-      alert(`Listing created successfully!`);
-      navigate('/profile');
-      
+      setCreatedListingId(readCreatedListingId(data));
+      setListingPublished(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred while creating the listing');
       console.error('Error creating listing:', err);
@@ -248,6 +269,46 @@ const StartSelling: React.FC = () => {
     form.category && subcategoriesByCategory[form.category]
       ? subcategoriesByCategory[form.category]
       : [];
+
+  if (listingPublished) {
+    return (
+      <div className="sell-page">
+        <button type="button" className="sell-back" onClick={() => navigate(-1)}>
+          ← Back
+        </button>
+        <div className="sell-success-card" role="status" aria-live="polite">
+          <h1 className="sell-success-title">Listing published</h1>
+          <p className="sell-success-text">
+            Your auction is live. You can open it below or manage it from your profile.
+          </p>
+          <div className="sell-success-actions">
+            {createdListingId ? (
+              <Link
+                to={`/auction/${createdListingId}`}
+                className="sell-btn-primary sell-success-link"
+              >
+                View listing
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              className="sell-btn-primary"
+              onClick={() => navigate("/profile")}
+            >
+              View profile
+            </button>
+            <button
+              type="button"
+              className="sell-btn-secondary"
+              onClick={startAnotherListing}
+            >
+              Create another listing
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="sell-page">

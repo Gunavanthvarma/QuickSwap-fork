@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Box,
   TextField,
   Button,
@@ -13,7 +14,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import AuthLayout from './AuthLayout';
 import './authenticate.css';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import type { ProfileResponse } from '../profilePage/Profile.types';
 import { authHeaders, getApiUrl } from '../../lib/api';
@@ -48,8 +49,13 @@ interface AuthResponse {
   msg?: string;
 }
 
+type SigninLocationState = {
+  signupSuccessMessage?: string;
+};
+
 const Signin: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { refreshUser } = useAuth();
   const [formData, setFormData] = useState<SignInFormData>({
     email: '',
@@ -61,6 +67,12 @@ const Signin: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const signupSuccessFromNav = (location.state as SigninLocationState | null)?.signupSuccessMessage;
+  const [signupBannerDismissed, setSignupBannerDismissed] = useState(false);
+  const showSignupSuccess =
+    typeof signupSuccessFromNav === 'string' &&
+    signupSuccessFromNav.length > 0 &&
+    !signupBannerDismissed;
 
   const handleInputChange = (field: keyof SignInFormData) => (
     event: React.ChangeEvent<HTMLInputElement>
@@ -171,6 +183,16 @@ const Signin: React.FC = () => {
       footerLinkHref="/signup"
     >
       <Box component="form" onSubmit={handleSubmit} className="form">
+
+        {showSignupSuccess && (
+          <Alert
+            severity="success"
+            onClose={() => setSignupBannerDismissed(true)}
+            sx={{ mb: 2 }}
+          >
+            {signupSuccessFromNav}
+          </Alert>
+        )}
 
         {apiError && (
           <Typography color="error" sx={{ mb: 2 }}>

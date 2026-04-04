@@ -185,13 +185,15 @@ const Signup: React.FC = () => {
         return;
       }
 
-      // No session: signup likely requires email confirmation
+      // No session: signup likely requires email confirmation — message shown on Sign in page
       const successMsg =
         (typeof parsed.message === 'string' && parsed.message) ||
         (typeof parsed.msg === 'string' && parsed.msg) ||
         'Account created successfully. Please sign in.';
-      alert(successMsg);
-      navigate('/signin', { replace: true });
+      navigate('/signin', {
+        replace: true,
+        state: { signupSuccessMessage: successMsg },
+      });
 
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Signup failed');
