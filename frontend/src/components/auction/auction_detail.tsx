@@ -106,7 +106,9 @@ const AuctionDetail: React.FC = () => {
   if (loading) {
     return (
       <div className="auction-page">
-        <p>Loading auction details...</p>
+        <main id="main-content">
+          <p>Loading auction details...</p>
+        </main>
       </div>
     );
   }
@@ -114,10 +116,12 @@ const AuctionDetail: React.FC = () => {
   if (error || !listing) {
     return (
       <div className="auction-page">
-        <button className="auction-back" onClick={() => navigate(-1)}>
+        <button type="button" className="auction-back" onClick={() => navigate(-1)}>
           Back
         </button>
-        <p>{error || "Listing not found."}</p>
+        <main id="main-content">
+          <p>{error || "Listing not found."}</p>
+        </main>
       </div>
     );
   }
@@ -155,30 +159,44 @@ const AuctionDetail: React.FC = () => {
     primaryCtaLabel = "Place higher bid";
   }
 
+  const thumbLabel = (index: number) =>
+    `Show image ${index + 1} of ${images.length} for ${title}`;
+
   return (
     <div className="auction-page">
-      <button className="auction-back" onClick={() => navigate(-1)}>
+      <button type="button" className="auction-back" onClick={() => navigate(-1)}>
         Back to results
       </button>
 
+      <main id="main-content">
       <div className="auction-layout">
-        <section className="auction-gallery">
+        <section className="auction-gallery" aria-label="Listing images">
           <div className="auction-main-image">
             {selectedImage ? (
-              <img src={selectedImage} alt={title} />
+              <img
+                src={selectedImage}
+                alt={title}
+                width={800}
+                height={533}
+                loading="eager"
+                decoding="async"
+              />
             ) : (
               <div className="auction-empty-image">No image available</div>
             )}
           </div>
           {images.length > 0 && (
-            <div className="auction-thumbnails">
+            <div className="auction-thumbnails" role="group" aria-label="Image thumbnails">
               {images.map((img, index) => (
                 <button
+                  type="button"
                   key={`${img}-${index}`}
                   className="auction-thumb"
                   onClick={() => setSelectedImage(img)}
+                  aria-label={thumbLabel(index)}
+                  aria-pressed={selectedImage === img}
                 >
-                  <img src={img} alt={`Thumbnail ${index + 1}`} />
+                  <img src={img} alt="" width={70} height={70} loading="lazy" decoding="async" />
                 </button>
               ))}
             </div>
@@ -248,7 +266,7 @@ const AuctionDetail: React.FC = () => {
 
           {canBid && (
             <div className="auction-actions">
-              <button className="auction-btn-primary">{primaryCtaLabel}</button>
+              <button type="button" className="auction-btn-primary">{primaryCtaLabel}</button>
 
               {has_joined && (
                 <div className="auction-bid-input">
@@ -265,7 +283,7 @@ const AuctionDetail: React.FC = () => {
                       onChange={(event) => setBidAmount(event.target.value)}
                       placeholder={String(Math.ceil(current_bid + 5))}
                     />
-                    <button className="auction-btn-ghost" disabled>
+                    <button type="button" className="auction-btn-ghost" disabled>
                       Bid
                     </button>
                   </div>
@@ -298,6 +316,7 @@ const AuctionDetail: React.FC = () => {
           </section>
         </section>
       </div>
+      </main>
     </div>
   );
 };

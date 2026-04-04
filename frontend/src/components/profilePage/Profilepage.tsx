@@ -54,10 +54,17 @@ const ProfilePage: React.FC = () => {
       )}
 
       <ProfileNavbar />
+      <main id="main-content">
       <ProfileHeader user={user} displayName={displayName} />
       <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
-      <section className="profile-content">
+      <section
+        className="profile-content"
+        id="profile-tab-panel"
+        role="tabpanel"
+        aria-labelledby={`tab-${activeTab}`}
+        tabIndex={0}
+      >
         {activeTab === "listings" && (
           <ListingsTab listings={userListings} loading={listingsLoading} error={listingsError}  />
         )}
@@ -68,6 +75,7 @@ const ProfilePage: React.FC = () => {
           <SettingsTab onEditProfile={handleEditOpen} />
         )}
       </section>
+      </main>
     </div>
   );
 };

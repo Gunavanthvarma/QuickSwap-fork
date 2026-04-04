@@ -349,6 +349,7 @@ a {
 .product-image-wrap {
   position: relative;
   overflow: hidden;
+  aspect-ratio: 3 / 2;
 }
 
 .product-image-wrap img {

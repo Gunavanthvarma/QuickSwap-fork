@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
-import "../landingPage/loggedin_landing_page.css";
+import "./landing_page.css";
+import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
 import {
   mapTopListingsToStripItems,
@@ -46,20 +47,21 @@ const LoggedInLandingPage: React.FC = () => {
         <div className="navbar-logo">
           <span className="logo-text">Quickswap</span>
         </div>
-        <nav className="navbar-links" />
+        <nav className="navbar-links" aria-label="Primary" />
         <div className="navbar-actions">
-          <button className="btn primary" onClick={handleStartSelling}>
+          <button type="button" className="btn primary" onClick={handleStartSelling}>
             Start selling
           </button>
           {isAuthenticated && (
             <>
               <button
+                type="button"
                 className="btn ghost"
                 onClick={() => navigate("/profile")}
               >
                 Profile
               </button>
-              <button className="btn ghost" onClick={handleLogout}>
+              <button type="button" className="btn ghost" onClick={handleLogout}>
                 Logout
               </button>
             </>
@@ -67,6 +69,7 @@ const LoggedInLandingPage: React.FC = () => {
         </div>
       </header>
 
+      <main id="main-content">
       <section className="hero">
         <div className="hero-content">
           <span className="hero-badge">Live now · Tailored auctions</span>
@@ -76,10 +79,11 @@ const LoggedInLandingPage: React.FC = () => {
             about to end — all in one place.
           </p>
           <div className="hero-actions">
-            <button className="btn primary" onClick={handleStartSelling}>
+            <button type="button" className="btn primary" onClick={handleStartSelling}>
               Start a new auction
             </button>
             <button
+              type="button"
               className="btn ghost"
               onClick={() => navigate("/profile")}
             >
@@ -91,7 +95,11 @@ const LoggedInLandingPage: React.FC = () => {
           <div className="hero-card main">
             <img
               src="https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=800"
-              alt="Dashboard preview"
+              alt="People collaborating at a laptop, representing your QuickSwap dashboard activity"
+              width={800}
+              height={533}
+              decoding="async"
+              fetchPriority="high"
             />
             <div className="hero-tag">
               3 auctions ending in the next hour
@@ -124,6 +132,8 @@ const LoggedInLandingPage: React.FC = () => {
           />
         </>
       )}
+
+      </main>
 
       <footer className="footer">
         <span>© {new Date().getFullYear()} Quickswap. All rights reserved.</span>

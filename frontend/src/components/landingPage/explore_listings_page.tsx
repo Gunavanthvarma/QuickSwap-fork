@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import "../landingPage/loggedin_landing_page.css";
+import "./landing_page.css";
+import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
 import {
   mapTopListingsToStripItems,
@@ -34,20 +35,21 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
 
   return (
     <div className="landing">
-      <header className="navbar">
+      <header className="navbar" aria-label="Explore listings">
         <div className="navbar-logo">
           <span className="logo-text">Quickswap</span>
         </div>
         <div className="navbar-actions">
-          <button className="btn ghost" onClick={() => navigate(-1)}>
+          <button type="button" className="btn ghost" onClick={() => navigate(-1)}>
             Back
           </button>
-          <button className="btn ghost" onClick={() => navigate("/profile")}>
+          <button type="button" className="btn ghost" onClick={() => navigate("/profile")}>
             Profile
           </button>
         </div>
       </header>
 
+      <main id="main-content">
       <section className="hero" style={{ minHeight: "auto", paddingBottom: "1rem" }}>
         <div className="hero-content">
           <span className="hero-badge">Explore</span>
@@ -65,6 +67,7 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
           onViewItem={(id) => navigate(`/auction/${id}`)}
         />
       )}
+      </main>
     </div>
   );
 };

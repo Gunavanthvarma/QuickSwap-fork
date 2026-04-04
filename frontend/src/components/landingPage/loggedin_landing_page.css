@@ -98,6 +98,7 @@
 .strip-image-wrap {
   position: relative;
   overflow: hidden;
+  aspect-ratio: 220 / 147;
 }
 
 .strip-image-wrap img {
