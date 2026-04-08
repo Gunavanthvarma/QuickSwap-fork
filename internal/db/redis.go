@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -139,6 +140,20 @@ func ProcessBidWithTx(ctx context.Context, rdb *redis.Client, auctionID string, 
 		err := rdb.Watch(ctx, txf, priceKey)
 		if err == nil {
 			log.Printf("[Redis] SUCCESS: New highest bid placed for auction %s by user %s: $%.2f", auctionID, userID, amount)
+
+			// Publish event to Redis Pub/Sub
+			payload := map[string]interface{}{
+				"auction_id":     auctionID,
+				"current_bid":    amount,
+				"highest_bidder": userID,
+			}
+			if payloadBytes, jsonErr := json.Marshal(payload); jsonErr == nil {
+				// Fire and forget via a background context or just use current context
+				rdb.Publish(ctx, fmt.Sprintf("auction:events:%s", auctionID), payloadBytes)
+			} else {
+				log.Printf("Failed to marshal bid event for auction %s: %v", auctionID, jsonErr)
+			}
+
 			return nil
 		}
 		if err == redis.TxFailedErr {

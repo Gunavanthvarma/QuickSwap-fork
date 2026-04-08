@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -25,12 +26,14 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	mux.HandleFunc("/api/createlisting", createListingHandler(c))
 	mux.HandleFunc("/api/mylistings", myListingHandler(c))
 	mux.HandleFunc("/api/listing", singleListingHandler(c))
+	mux.HandleFunc("/api/toplistings", topListingsHandler(c))
+
 
 	// Register bids Api
 	mux.HandleFunc("/api/mybids", myBidsHandler(c))
-	mux.HandleFunc("/api/toplistings", topListingsHandler(c))
 
 	mux.HandleFunc("POST /api/auctions/{id}/bid", bidHandler(c, pg, rdb))
+	mux.HandleFunc("GET /api/ws/auctions/{id}", sseAuctionHandler(rdb))
 	return mux
 }
 
@@ -105,5 +108,49 @@ func bidHandler(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handle
 		respondJSON(w, map[string]interface{}{
 			"message": "Bid placed successfully",
 		})
+	}
+}
+
+// sseAuctionHandler sets up a Server-Sent Events (SSE) stream for real-time auction updates.
+func sseAuctionHandler(rdb *redis.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		auctionID := r.PathValue("id")
+		if auctionID == "" {
+			http.Error(w, "Auction ID is required", http.StatusBadRequest)
+			return
+		}
+
+		// Set headers for SSE
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			return
+		}
+
+		ctx := r.Context()
+
+		// Subscribe to the Redis Pub/Sub channel for this specific auction
+		pubsub := rdb.Subscribe(ctx, fmt.Sprintf("auction:events:%s", auctionID))
+		defer pubsub.Close()
+
+		ch := pubsub.Channel()
+
+		for {
+			select {
+			case <-ctx.Done():
+				// Client disconnected
+				log.Printf("[SSE] Connection closed for auction %s", auctionID)
+				return
+			case msg := <-ch:
+				// Forward the JSON payload from Redis directly to the client as an SSE event
+				fmt.Fprintf(w, "event: bid_update\ndata: %s\n\n", msg.Payload)
+				flusher.Flush()
+			}
+		}
 	}
 }
