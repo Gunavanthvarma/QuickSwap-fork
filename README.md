@@ -10,11 +10,13 @@ The app uses Supabase for authentication. To run locally:
 2. Copy `.env` and fill in:
    - `SUPABASE_URL` — your project URL (e.g. `https://xxx.supabase.co`)
    - `SUPABASE_ANON_KEY` — your anon/public key
-3. Run the auth server:
+3. run `docker-compose up -d redis`
+4. execute `docker run --name quickswap-redis -p 6379:6379 -d redis:7-alpine`
+5. Run the auth server:
    ```bash
    go run ./cmd/server
    ```
-4. Open http://localhost:8082 in your browser.
+6. Open http://localhost:8082 in your browser.
 
 ## Frontend Setup
 
