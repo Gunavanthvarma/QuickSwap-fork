@@ -38,7 +38,12 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
       <div className={`strip-scroll ${layout === "grid" ? "strip-grid" : ""}`}>
         {items.length === 0 && <div>{emptyText}</div>}
         {items.map((item) => (
-          <article key={item.id} className="strip-card">
+          <article
+            key={item.id}
+            className="strip-card"
+            style={{ cursor: "pointer" }}
+            onClick={() => onViewItem(item.id)}
+          >
             <div className="strip-image-wrap">
               <img src={item.image} alt={item.name} />
               <span className="product-tag">{item.tag}</span>
@@ -47,9 +52,7 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
               <h3>{item.name}</h3>
               <div className="strip-meta">
                 <span className="product-price">{item.price}</span>
-                <button className="btn tiny" onClick={() => onViewItem(item.id)}>
-                  View
-                </button>
+                <span className="strip-card-link">View details</span>
               </div>
             </div>
           </article>
