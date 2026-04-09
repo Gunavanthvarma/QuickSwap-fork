@@ -101,7 +101,14 @@ describe('Profile Components', () => {
         it('calls onEditProfile when edit button is clicked', () => {
             const onEditProfile = vi.fn();
             const onUpdatePassword = vi.fn();
-            render(<SettingsTab onEditProfile={onEditProfile} onUpdatePassword={onUpdatePassword} />);
+            const onDeleteAccount = vi.fn();
+            render(
+                <SettingsTab
+                    onEditProfile={onEditProfile}
+                    onUpdatePassword={onUpdatePassword}
+                    onDeleteAccount={onDeleteAccount}
+                />
+            );
             fireEvent.click(screen.getByText(/edit profile/i));
             expect(onEditProfile).toHaveBeenCalled();
         });
@@ -109,9 +116,31 @@ describe('Profile Components', () => {
         it('calls onUpdatePassword when update password button is clicked', () => {
             const onEditProfile = vi.fn();
             const onUpdatePassword = vi.fn();
-            render(<SettingsTab onEditProfile={onEditProfile} onUpdatePassword={onUpdatePassword} />);
+            const onDeleteAccount = vi.fn();
+            render(
+                <SettingsTab
+                    onEditProfile={onEditProfile}
+                    onUpdatePassword={onUpdatePassword}
+                    onDeleteAccount={onDeleteAccount}
+                />
+            );
             fireEvent.click(screen.getByText(/update password/i));
             expect(onUpdatePassword).toHaveBeenCalled();
+        });
+
+        it('calls onDeleteAccount when delete account button is clicked', () => {
+            const onEditProfile = vi.fn();
+            const onUpdatePassword = vi.fn();
+            const onDeleteAccount = vi.fn();
+            render(
+                <SettingsTab
+                    onEditProfile={onEditProfile}
+                    onUpdatePassword={onUpdatePassword}
+                    onDeleteAccount={onDeleteAccount}
+                />
+            );
+            fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
+            expect(onDeleteAccount).toHaveBeenCalled();
         });
     });
 });

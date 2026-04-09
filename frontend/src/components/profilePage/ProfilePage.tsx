@@ -10,6 +10,8 @@ import {
   ProfileTabs,
   EditProfileModal,
   UpdatePasswordModal,
+  DeleteAccountModal,
+  DeleteAccountFinalModal,
   ListingsTab,
   BidsTab,
   SettingsTab,
@@ -26,6 +28,15 @@ const ProfilePage: React.FC = () => {
     isUpdatingPassword, passwordForm, setPasswordForm,
     passwordUpdateError, passwordModalKey,
     handlePasswordOpen, handlePasswordSubmit, closePassword,
+    deleteAccountFlow,
+    deletePhraseInput,
+    setDeletePhraseInput,
+    deletePhraseError,
+    deleteAccountModalKey,
+    handleDeleteAccountOpen,
+    closeDeleteAccountFlow,
+    tryAdvanceToFinalDeleteStep,
+    confirmDeleteAccount,
   } = useProfile();
 
   const { userListings, loading: listingsLoading, error: listingsError, fetchMyListings } = useMyListings();
@@ -72,6 +83,26 @@ const ProfilePage: React.FC = () => {
           />,
           document.body
         )}
+      {deleteAccountFlow === "phrase" &&
+        createPortal(
+          <DeleteAccountModal
+            key={deleteAccountModalKey}
+            confirmPhrase={deletePhraseInput}
+            setConfirmPhrase={setDeletePhraseInput}
+            phraseError={deletePhraseError}
+            onKeep={closeDeleteAccountFlow}
+            onDelete={tryAdvanceToFinalDeleteStep}
+          />,
+          document.body
+        )}
+      {deleteAccountFlow === "final" &&
+        createPortal(
+          <DeleteAccountFinalModal
+            onNo={closeDeleteAccountFlow}
+            onYes={confirmDeleteAccount}
+          />,
+          document.body
+        )}
 
       <ProfileNavbar />
       <ProfileHeader user={user} displayName={displayName} />
@@ -85,7 +116,11 @@ const ProfilePage: React.FC = () => {
           <BidsTab bids={userBids} loading={bidsLoading} error={bidsError}  />
         )}
         {activeTab === "settings" && (
-          <SettingsTab onEditProfile={handleEditOpen} onUpdatePassword={handlePasswordOpen} />
+          <SettingsTab
+            onEditProfile={handleEditOpen}
+            onUpdatePassword={handlePasswordOpen}
+            onDeleteAccount={handleDeleteAccountOpen}
+          />
         )}
       </section>
     </div>

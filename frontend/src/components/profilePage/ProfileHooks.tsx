@@ -55,6 +55,11 @@ export const useProfile = () => {
   const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(null);
   const [passwordModalKey, setPasswordModalKey] = useState(0);
 
+  const [deleteAccountFlow, setDeleteAccountFlow] = useState<"closed" | "phrase" | "final">("closed");
+  const [deletePhraseInput, setDeletePhraseInput] = useState("");
+  const [deletePhraseError, setDeletePhraseError] = useState<string | null>(null);
+  const [deleteAccountModalKey, setDeleteAccountModalKey] = useState(0);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -97,6 +102,37 @@ export const useProfile = () => {
       confirm_password: "",
     });
     setIsUpdatingPassword(true);
+  };
+
+  const handleDeleteAccountOpen = () => {
+    setDeletePhraseError(null);
+    setDeletePhraseInput("");
+    setDeleteAccountModalKey((k) => k + 1);
+    setDeleteAccountFlow("phrase");
+  };
+
+  const closeDeleteAccountFlow = () => {
+    setDeleteAccountFlow("closed");
+    setDeletePhraseInput("");
+    setDeletePhraseError(null);
+  };
+
+  const tryAdvanceToFinalDeleteStep = () => {
+    setDeletePhraseError(null);
+    if (deletePhraseInput.trim() !== "Delete") {
+      setDeletePhraseError("Please type Delete exactly to confirm.");
+      return;
+    }
+    setDeleteAccountFlow("final");
+  };
+
+  const confirmDeleteAccount = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("accessTokenExpiry");
+    localStorage.removeItem("user");
+    closeDeleteAccountFlow();
+    navigate("/signin", { replace: true });
   };
 
   const handlePasswordSubmit = async (): Promise<boolean> => {
@@ -205,6 +241,15 @@ export const useProfile = () => {
       setPasswordUpdateError(null);
       setIsUpdatingPassword(false);
     },
+    deleteAccountFlow,
+    deletePhraseInput,
+    setDeletePhraseInput,
+    deletePhraseError,
+    deleteAccountModalKey,
+    handleDeleteAccountOpen,
+    closeDeleteAccountFlow,
+    tryAdvanceToFinalDeleteStep,
+    confirmDeleteAccount,
   };
 };
 

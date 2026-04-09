@@ -276,6 +276,79 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
   );
 };
 
+// ─── DeleteAccountModal (step 1) ──────────────────────────────────────────────
+
+interface DeleteAccountModalProps {
+  confirmPhrase: string;
+  setConfirmPhrase: React.Dispatch<React.SetStateAction<string>>;
+  phraseError: string | null;
+  onKeep: () => void;
+  onDelete: () => void;
+}
+
+export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
+  confirmPhrase,
+  setConfirmPhrase,
+  phraseError,
+  onKeep,
+  onDelete,
+}) => (
+  <div className="edit-profile-modal-overlay">
+    <div className="edit-profile-modal-content">
+      <h2>Delete account</h2>
+      <p className="delete-account-prompt">Are you sure you want to delete the account?</p>
+      <div className="settings-group">
+        <label htmlFor="delete-account-confirm">Type <strong>Delete</strong> to confirm</label>
+        <input
+          id="delete-account-confirm"
+          type="text"
+          autoComplete="off"
+          value={confirmPhrase}
+          onChange={(e) => setConfirmPhrase(e.target.value)}
+          placeholder="Delete"
+        />
+      </div>
+      {phraseError ? (
+        <p className="edit-profile-error" role="alert">
+          {phraseError}
+        </p>
+      ) : null}
+      <div className="edit-profile-actions">
+        <button type="button" className="btn ghost" onClick={onKeep}>
+          Keep
+        </button>
+        <button type="button" className="btn danger" onClick={onDelete}>
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── DeleteAccountFinalModal (step 2) ─────────────────────────────────────────
+
+interface DeleteAccountFinalModalProps {
+  onNo: () => void;
+  onYes: () => void;
+}
+
+export const DeleteAccountFinalModal: React.FC<DeleteAccountFinalModalProps> = ({ onNo, onYes }) => (
+  <div className="edit-profile-modal-overlay">
+    <div className="edit-profile-modal-content">
+      <h2>Delete account</h2>
+      <p className="delete-account-prompt">Are you sure you want to delete account?</p>
+      <div className="edit-profile-actions">
+        <button type="button" className="btn ghost" onClick={onNo}>
+          No
+        </button>
+        <button type="button" className="btn danger" onClick={onYes}>
+          Yes
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // ─── ListingsTab ──────────────────────────────────────────────────────────────
 
 interface ListingsTabProps {
@@ -386,9 +459,14 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
 interface SettingsTabProps {
   onEditProfile: () => void;
   onUpdatePassword: () => void;
+  onDeleteAccount: () => void;
 }
 
-export const SettingsTab: React.FC<SettingsTabProps> = ({ onEditProfile, onUpdatePassword }) => (
+export const SettingsTab: React.FC<SettingsTabProps> = ({
+  onEditProfile,
+  onUpdatePassword,
+  onDeleteAccount,
+}) => (
   <div className="settings-container">
     <div className="settings-section">
       <h2>Account Details</h2>
@@ -407,7 +485,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onEditProfile, onUpdat
       </div>
       <div className="settings-group inline" style={{ marginBottom: 0 }}>
         <label style={{ color: "var(--error)" }}>Delete account</label>
-        <button type="button" className="btn ghost" style={{ color: "var(--error)", borderColor: "var(--error-soft)" }}>
+        <button
+          type="button"
+          className="btn ghost"
+          style={{ color: "var(--error)", borderColor: "var(--error-soft)" }}
+          onClick={onDeleteAccount}
+        >
           Delete account
         </button>
       </div>

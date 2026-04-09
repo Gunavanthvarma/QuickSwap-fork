@@ -188,6 +188,18 @@ body {
   background-color: #f3f4f6;
 }
 
+.btn.danger {
+  background: var(--error);
+  color: #ffffff;
+  border-color: var(--error);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.btn.danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
 .btn.ghost-icon {
   padding: 8px;
   border-radius: 50%;
@@ -633,6 +645,13 @@ body {
   margin-top: 0;
   margin-bottom: 24px;
   font-size: 1.25rem;
+  color: var(--text);
+}
+
+.delete-account-prompt {
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  line-height: 1.5;
   color: var(--text);
 }
 
