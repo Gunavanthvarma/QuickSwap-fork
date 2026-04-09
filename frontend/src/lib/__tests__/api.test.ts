@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { apiErrorMessage, isFetchAborted, isRecord } from "../api";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { apiErrorMessage, getApiUrl, getSSEUrl, isFetchAborted, isRecord } from "../api";
 
 describe("isRecord", () => {
   it("returns false for null and undefined", () => {
@@ -28,6 +28,25 @@ describe("isFetchAborted", () => {
 
   it("returns false for other errors", () => {
     expect(isFetchAborted(new Error("fail"))).toBe(false);
+  });
+});
+
+describe("getApiUrl / getSSEUrl", () => {
+  beforeEach(() => {
+    vi.stubEnv("VITE_API_BASE", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("getApiUrl returns relative path when VITE_API_BASE is empty", () => {
+    expect(getApiUrl("/api/foo")).toBe("/api/foo");
+  });
+
+  it("getSSEUrl makes relative API path absolute for EventSource", () => {
+    const u = getSSEUrl("/api/ws/auctions/abc");
+    expect(u.startsWith("http://") || u.startsWith("https://")).toBe(true);
+    expect(u).toContain("/api/ws/auctions/abc");
   });
 });
 

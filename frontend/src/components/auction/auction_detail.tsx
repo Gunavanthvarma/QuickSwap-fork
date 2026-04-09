@@ -1,8 +1,44 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { apiErrorMessage, authHeaders, getApiUrl, isFetchAborted, isRecord } from "../../lib/api";
+import { useAuth } from "../../auth/useAuth";
+import { apiErrorMessage, authHeaders, getApiUrl, getSSEUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
+import {
+  computeServerSkewMs,
+  formatCountdown,
+  parseAuctionEndMsFromListing,
+  parseTimeSyncPayload,
+  remainingUntilEndMs,
+} from "./auctionCountdown";
 import "./auction_detail.css";
+
+/** Payload from Redis → SSE `bid_update` events (see backend `ProcessBidWithTx`). */
+interface BidUpdatePayload {
+  auction_id: string;
+  current_bid: number;
+  highest_bidder: string;
+}
+
+function parseBidUpdatePayload(raw: string): BidUpdatePayload | null {
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!isRecord(v)) return null;
+    const auction_id = v.auction_id;
+    const current_bid = v.current_bid;
+    const highest_bidder = v.highest_bidder;
+    if (typeof auction_id !== "string" || typeof highest_bidder !== "string") return null;
+    const bid =
+      typeof current_bid === "number"
+        ? current_bid
+        : typeof current_bid === "string"
+          ? Number.parseFloat(current_bid)
+          : NaN;
+    if (!Number.isFinite(bid)) return null;
+    return { auction_id, current_bid: bid, highest_bidder };
+  } catch {
+    return null;
+  }
+}
 
 interface SingleListingResponse {
   listing_id: string;
@@ -31,6 +67,7 @@ interface SingleListingResponse {
 
 const AuctionDetail: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { id: paramId } = useParams();
   const [searchParams] = useSearchParams();
 
@@ -45,6 +82,18 @@ const AuctionDetail: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  /** Live bid row from SSE (`/api/ws/auctions/:id`). */
+  const [liveBid, setLiveBid] = useState<BidUpdatePayload | null>(null);
+  const [liveBidEventCount, setLiveBidEventCount] = useState(0);
+  const [sseStatus, setSseStatus] = useState<"idle" | "connecting" | "open" | "closed">("idle");
+
+  /** When backend sends SSE `time_sync` (optional until backend ships it). */
+  const [serverSkewMs, setServerSkewMs] = useState<number | null>(null);
+  /** Prefer Unix end from `time_sync`; fallback computed from listing.auction_end_time. */
+  const [auctionEndMs, setAuctionEndMs] = useState<number | null>(null);
+  const [auctionEndedByServer, setAuctionEndedByServer] = useState(false);
+  const [tick, setTick] = useState(0);
+
   useEffect(() => {
     const ac = new AbortController();
     const { signal } = ac;
@@ -58,6 +107,7 @@ const AuctionDetail: React.FC = () => {
 
       setLoading(true);
       setError(null);
+      setListing(null);
 
       try {
         const token = localStorage.getItem("accessToken");
@@ -88,6 +138,9 @@ const AuctionDetail: React.FC = () => {
 
         setListing(normalized);
         setSelectedImage(normalized.image || normalized.images[0] || "");
+        setAuctionEndMs(parseAuctionEndMsFromListing(normalized.auction_end_time));
+        setServerSkewMs(null);
+        setAuctionEndedByServer(false);
       } catch (err: unknown) {
         if (isFetchAborted(err)) return;
         setError(err instanceof Error ? err.message : "Failed to fetch listing");
@@ -102,6 +155,77 @@ const AuctionDetail: React.FC = () => {
     void fetchListing();
     return () => ac.abort();
   }, [listingId]);
+
+  // Real-time: SSE GET /api/ws/auctions/{id} — bid_update (today); optional time_sync + auction_ended when backend adds them.
+  useEffect(() => {
+    setLiveBid(null);
+    setLiveBidEventCount(0);
+    setSseStatus("idle");
+
+    if (!listingId || !listing) return;
+    if (listing.listing_id !== listingId) return;
+    if (listing.status.toLowerCase() !== "active") return;
+
+    let es: EventSource | null = null;
+    const url = getSSEUrl(`/api/ws/auctions/${encodeURIComponent(listingId)}`);
+    setSseStatus("connecting");
+    es = new EventSource(url);
+
+    es.addEventListener("open", () => {
+      setSseStatus("open");
+    });
+
+    es.addEventListener("time_sync", (ev: MessageEvent) => {
+      const sync = parseTimeSyncPayload(String(ev.data));
+      if (!sync || sync.auction_id !== listingId) return;
+      const skew = computeServerSkewMs(sync.server_time, Date.now());
+      if (skew != null) setServerSkewMs(skew);
+      if (sync.auction_end_unix != null) {
+        setAuctionEndMs(sync.auction_end_unix * 1000);
+      }
+    });
+
+    es.addEventListener("auction_ended", (ev: MessageEvent) => {
+      try {
+        const raw = JSON.parse(String(ev.data)) as unknown;
+        if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+          const aid = (raw as { auction_id?: string }).auction_id;
+          if (typeof aid === "string" && aid !== listingId) return;
+        }
+      } catch {
+        /* accept event without body */
+      }
+      setAuctionEndedByServer(true);
+    });
+
+    es.addEventListener("bid_update", (ev: MessageEvent) => {
+      const payload = parseBidUpdatePayload(String(ev.data));
+      if (!payload) return;
+      setLiveBid(payload);
+      setLiveBidEventCount((n) => n + 1);
+    });
+
+    es.addEventListener("error", () => {
+      setSseStatus("closed");
+      es?.close();
+      es = null;
+    });
+
+    return () => {
+      es?.close();
+      setSseStatus("closed");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reconnect when auction id or active status changes, not on every listing field update
+  }, [listingId, listing?.listing_id, listing?.status]);
+
+  // Tick every second for countdown while auction is active on this page.
+  useEffect(() => {
+    if (!listing || listing.status.toLowerCase() !== "active" || auctionEndedByServer) return;
+    const id = window.setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [listing, auctionEndedByServer]);
 
   if (loading) {
     return (
@@ -147,15 +271,36 @@ const AuctionDetail: React.FC = () => {
     brand,
   } = listing;
 
-  const canBid = !is_seller && status.toLowerCase() === "active";
+  const displayCurrentBid = liveBid != null ? liveBid.current_bid : current_bid;
+  const displayTotalBids = total_bids + liveBidEventCount;
+  const displayIsHighestBidder =
+    liveBid != null && user?.id ? user.id === liveBid.highest_bidder : is_highest_bidder;
+
+  const endMs = auctionEndMs ?? parseAuctionEndMsFromListing(listing.auction_end_time);
+  const remainingMs =
+    endMs != null
+      ? remainingUntilEndMs(endMs, Date.now() + tick * 0, serverSkewMs)
+      : null;
+  const clientCountdownEnded = remainingMs != null && remainingMs <= 0;
+  const auctionInactive =
+    status.toLowerCase() !== "active" || auctionEndedByServer || clientCountdownEnded;
+
+  const displayTimeLeft =
+    remainingMs != null && !auctionEndedByServer
+      ? formatCountdown(remainingMs)
+      : auctionEndedByServer || clientCountdownEnded
+        ? "Ended"
+        : time_left;
+
+  const canBid = !is_seller && !auctionInactive;
 
   // Decide primary call-to-action text based on backend participation state.
   let primaryCtaLabel = "Join auction";
   if (is_seller) {
     primaryCtaLabel = "Manage listing";
-  } else if (has_joined && is_highest_bidder) {
+  } else if (has_joined && displayIsHighestBidder) {
     primaryCtaLabel = "You are leading - raise max bid";
-  } else if (has_joined && !is_highest_bidder) {
+  } else if (has_joined && !displayIsHighestBidder) {
     primaryCtaLabel = "Place higher bid";
   }
 
@@ -207,6 +352,26 @@ const AuctionDetail: React.FC = () => {
           <header className="auction-header">
             <h1>{title}</h1>
             <p className="auction-subtitle">{subtitle || description}</p>
+            {!auctionInactive && (
+              <p className="auction-live-row" aria-live="polite">
+                <span
+                  className={
+                    "auction-live-pill " +
+                    (sseStatus === "open"
+                      ? "auction-live-pill--open"
+                      : sseStatus === "connecting"
+                        ? "auction-live-pill--connecting"
+                        : "auction-live-pill--offline")
+                  }
+                >
+                  {sseStatus === "open"
+                    ? "Live bid updates"
+                    : sseStatus === "connecting"
+                      ? "Connecting to live updates…"
+                      : "Live updates unavailable"}
+                </span>
+              </p>
+            )}
           </header>
 
           <div className="auction-meta-row">
@@ -216,11 +381,13 @@ const AuctionDetail: React.FC = () => {
             </div>
             <div>
               <span className="auction-label">Time left</span>
-              <span className="auction-value">{time_left}</span>
+              <span className="auction-value" aria-live="polite">
+                {displayTimeLeft}
+              </span>
             </div>
             <div>
               <span className="auction-label">Bids</span>
-              <span className="auction-value">{total_bids}</span>
+              <span className="auction-value">{displayTotalBids}</span>
             </div>
           </div>
 
@@ -228,15 +395,17 @@ const AuctionDetail: React.FC = () => {
             <div className="auction-price-main">
               <span className="auction-label">Current bid</span>
               <div className="auction-price-line">
-                <span className="auction-price">{formatCurrency(current_bid)}</span>
+                <span className="auction-price" aria-live="polite">
+                  {formatCurrency(displayCurrentBid)}
+                </span>
                 {!is_seller && has_joined && (
                   <span
                     className={
                       "auction-badge " +
-                      (is_highest_bidder ? "auction-badge-success" : "auction-badge-warning")
+                      (displayIsHighestBidder ? "auction-badge-success" : "auction-badge-warning")
                     }
                   >
-                    {is_highest_bidder ? "You are highest bidder" : "You have been outbid"}
+                    {displayIsHighestBidder ? "You are highest bidder" : "You have been outbid"}
                   </span>
                 )}
               </div>
@@ -281,15 +450,15 @@ const AuctionDetail: React.FC = () => {
                       className="auction-bid-field"
                       value={bidAmount}
                       onChange={(event) => setBidAmount(event.target.value)}
-                      placeholder={String(Math.ceil(current_bid + 5))}
+                      placeholder={String(Math.ceil(displayCurrentBid + 5))}
                     />
                     <button type="button" className="auction-btn-ghost" disabled>
                       Bid
                     </button>
                   </div>
-                  {!is_highest_bidder && (
+                  {!displayIsHighestBidder && (
                     <p className="auction-hint">
-                      You are currently outbid. Try at least {formatCurrency(Math.ceil(current_bid + 5))} to take the lead.
+                      You are currently outbid. Try at least {formatCurrency(Math.ceil(displayCurrentBid + 5))} to take the lead.
                     </p>
                   )}
                 </div>

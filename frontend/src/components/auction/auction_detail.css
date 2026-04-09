@@ -103,6 +103,38 @@
   color: #6b7280;
 }
 
+.auction-live-row {
+  margin: 10px 0 0;
+}
+
+.auction-live-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
+  background: #f3f4f6;
+}
+
+.auction-live-pill--open {
+  color: #15803d;
+  border-color: #86efac;
+  background: #ecfdf5;
+}
+
+.auction-live-pill--connecting {
+  color: #b45309;
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.auction-live-pill--offline {
+  color: #6b7280;
+}
+
 /* Meta row: seller, time, bids */
 .auction-meta-row {
   display: grid;

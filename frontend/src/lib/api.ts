@@ -12,6 +12,16 @@ export function getApiUrl(path: string): string {
   return `${normalizedBase}${normalizedPath}`;
 }
 
+/** Absolute URL for `EventSource` (SSE); same rules as `getApiUrl`. */
+export function getSSEUrl(path: string): string {
+  const u = getApiUrl(path);
+  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}${u.startsWith("/") ? u : `/${u}`}`;
+  }
+  return u;
+}
+
 /** JSON request headers; adds Bearer token when provided. */
 export function authHeaders(accessToken?: string | null): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
