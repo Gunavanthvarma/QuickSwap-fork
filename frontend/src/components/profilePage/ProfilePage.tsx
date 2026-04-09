@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import "./profile_page.css";
 
 import type { ActiveTab } from "./Profile.types";
@@ -8,6 +9,7 @@ import {
   ProfileHeader,
   ProfileTabs,
   EditProfileModal,
+  UpdatePasswordModal,
   ListingsTab,
   BidsTab,
   SettingsTab,
@@ -21,6 +23,9 @@ const ProfilePage: React.FC = () => {
     isEditingProfile, editForm, setEditForm,
     profileSaveError, savingProfile, profileEditModalKey,
     handleEditOpen, handleEditSubmit, closeEdit,
+    isUpdatingPassword, passwordForm, setPasswordForm,
+    passwordUpdateError, passwordModalKey,
+    handlePasswordOpen, handlePasswordSubmit, closePassword,
   } = useProfile();
 
   const { userListings, loading: listingsLoading, error: listingsError, fetchMyListings } = useMyListings();
@@ -41,18 +46,32 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="profile-page">
-      {isEditingProfile && (
-        <EditProfileModal
-          key={profileEditModalKey}
-          user={user}
-          editForm={editForm}
-          setEditForm={setEditForm}
-          onSubmit={handleEditSubmit}
-          onClose={closeEdit}
-          saveError={profileSaveError}
-          saving={savingProfile}
-        />
-      )}
+      {isEditingProfile &&
+        createPortal(
+          <EditProfileModal
+            key={profileEditModalKey}
+            user={user}
+            editForm={editForm}
+            setEditForm={setEditForm}
+            onSubmit={handleEditSubmit}
+            onClose={closeEdit}
+            saveError={profileSaveError}
+            saving={savingProfile}
+          />,
+          document.body
+        )}
+      {isUpdatingPassword &&
+        createPortal(
+          <UpdatePasswordModal
+            key={passwordModalKey}
+            passwordForm={passwordForm}
+            setPasswordForm={setPasswordForm}
+            onSubmit={handlePasswordSubmit}
+            onClose={closePassword}
+            updateError={passwordUpdateError}
+          />,
+          document.body
+        )}
 
       <ProfileNavbar />
       <ProfileHeader user={user} displayName={displayName} />
@@ -66,7 +85,7 @@ const ProfilePage: React.FC = () => {
           <BidsTab bids={userBids} loading={bidsLoading} error={bidsError}  />
         )}
         {activeTab === "settings" && (
-          <SettingsTab onEditProfile={handleEditOpen} />
+          <SettingsTab onEditProfile={handleEditOpen} onUpdatePassword={handlePasswordOpen} />
         )}
       </section>
     </div>

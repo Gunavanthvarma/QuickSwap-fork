@@ -1,6 +1,13 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import type { ProfileResponse, EditFormState, ListingCardItem, BidCardItem, ActiveTab } from "./Profile.types";
+import type {
+  ProfileResponse,
+  EditFormState,
+  UpdatePasswordFormState,
+  ListingCardItem,
+  BidCardItem,
+  ActiveTab,
+} from "./Profile.types";
 
 // ─── ProfileNavbar ────────────────────────────────────────────────────────────
 
@@ -69,9 +76,9 @@ interface ProfileTabsProps {
 
 export const ProfileTabs: React.FC<ProfileTabsProps> = ({ activeTab, onTabChange }) => (
   <section className="profile-tabs">
-    <button className={`tab ${activeTab === "listings" ? "active" : ""}`} onClick={() => onTabChange("listings")}>My Listings</button>
-    <button className={`tab ${activeTab === "bids" ? "active" : ""}`} onClick={() => onTabChange("bids")}>My Bids</button>
-    <button className={`tab ${activeTab === "settings" ? "active" : ""}`} onClick={() => onTabChange("settings")}>Settings</button>
+    <button type="button" className={`tab ${activeTab === "listings" ? "active" : ""}`} onClick={() => onTabChange("listings")}>My Listings</button>
+    <button type="button" className={`tab ${activeTab === "bids" ? "active" : ""}`} onClick={() => onTabChange("bids")}>My Bids</button>
+    <button type="button" className={`tab ${activeTab === "settings" ? "active" : ""}`} onClick={() => onTabChange("settings")}>Settings</button>
   </section>
 );
 
@@ -155,6 +162,112 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <button type="button" className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
             <button type="submit" className="btn primary" disabled={saving}>
               {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ─── UpdatePasswordModal ──────────────────────────────────────────────────────
+
+interface UpdatePasswordModalProps {
+  passwordForm: UpdatePasswordFormState;
+  setPasswordForm: React.Dispatch<React.SetStateAction<UpdatePasswordFormState>>;
+  onSubmit: (e: React.FormEvent) => Promise<boolean>;
+  onClose: () => void;
+  updateError?: string | null;
+}
+
+export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
+  passwordForm,
+  setPasswordForm,
+  onSubmit,
+  onClose,
+  updateError,
+}) => {
+  const [showSuccess, setShowSuccess] = React.useState(false);
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ok = await onSubmit(e);
+    if (ok) setShowSuccess(true);
+  };
+
+  if (showSuccess) {
+    return (
+      <div className="edit-profile-modal-overlay">
+        <div className="edit-profile-modal-content">
+          <h2>Update password</h2>
+          <p className="edit-profile-success" role="status">
+            Password updated successfully
+          </p>
+          <div className="edit-profile-actions edit-profile-actions--single">
+            <button type="button" className="btn primary" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="edit-profile-modal-overlay">
+      <div className="edit-profile-modal-content">
+        <h2>Update password</h2>
+        <form onSubmit={handleFormSubmit} className="edit-profile-form">
+          {updateError ? (
+            <p className="edit-profile-error" role="alert">
+              {updateError}
+            </p>
+          ) : null}
+          <div className="settings-group">
+            <label htmlFor="update-pw-old">Old password</label>
+            <input
+              id="update-pw-old"
+              type="password"
+              autoComplete="current-password"
+              value={passwordForm.old_password}
+              required
+              onChange={(e) =>
+                setPasswordForm((prev) => ({ ...prev, old_password: e.target.value }))
+              }
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="update-pw-new">New password</label>
+            <input
+              id="update-pw-new"
+              type="password"
+              autoComplete="new-password"
+              value={passwordForm.new_password}
+              required
+              onChange={(e) =>
+                setPasswordForm((prev) => ({ ...prev, new_password: e.target.value }))
+              }
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="update-pw-confirm">Re-enter new password</label>
+            <input
+              id="update-pw-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={passwordForm.confirm_password}
+              required
+              onChange={(e) =>
+                setPasswordForm((prev) => ({ ...prev, confirm_password: e.target.value }))
+              }
+            />
+          </div>
+          <div className="edit-profile-actions">
+            <button type="button" className="btn ghost" onClick={onClose}>
+              Close
+            </button>
+            <button type="submit" className="btn primary">
+              Update
             </button>
           </div>
         </form>
@@ -272,26 +385,29 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
 
 interface SettingsTabProps {
   onEditProfile: () => void;
+  onUpdatePassword: () => void;
 }
 
-export const SettingsTab: React.FC<SettingsTabProps> = ({ onEditProfile }) => (
+export const SettingsTab: React.FC<SettingsTabProps> = ({ onEditProfile, onUpdatePassword }) => (
   <div className="settings-container">
     <div className="settings-section">
       <h2>Account Details</h2>
       <div className="settings-group inline" style={{ marginBottom: 0 }}>
         <label>Personal information</label>
-        <button className="btn ghost" onClick={onEditProfile}>Edit profile</button>
+        <button type="button" className="btn ghost" onClick={onEditProfile}>Edit profile</button>
       </div>
     </div>
     <div className="settings-section">
       <h2>Privacy & Security</h2>
       <div className="settings-group inline">
         <label>Change password</label>
-        <button className="btn ghost">Update password</button>
+        <button type="button" className="btn ghost" onClick={onUpdatePassword}>
+          Update password
+        </button>
       </div>
       <div className="settings-group inline" style={{ marginBottom: 0 }}>
         <label style={{ color: "var(--error)" }}>Delete account</label>
-        <button className="btn ghost" style={{ color: "var(--error)", borderColor: "var(--error-soft)" }}>
+        <button type="button" className="btn ghost" style={{ color: "var(--error)", borderColor: "var(--error-soft)" }}>
           Delete account
         </button>
       </div>

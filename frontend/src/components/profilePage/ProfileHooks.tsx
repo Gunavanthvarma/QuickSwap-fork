@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type {
   ProfileResponse,
   EditFormState,
+  UpdatePasswordFormState,
   ListingCardItem,
   BidCardItem,
   MyListingApiItem,
@@ -45,6 +46,15 @@ export const useProfile = () => {
   /** Bumps when opening the edit modal so the modal remounts with fresh local state. */
   const [profileEditModalKey, setProfileEditModalKey] = useState(0);
 
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState<UpdatePasswordFormState>({
+    old_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+  const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(null);
+  const [passwordModalKey, setPasswordModalKey] = useState(0);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -78,7 +88,39 @@ export const useProfile = () => {
     }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent): Promise<boolean> => {
+  const handlePasswordOpen = () => {
+    setPasswordUpdateError(null);
+    setPasswordModalKey((k) => k + 1);
+    setPasswordForm({
+      old_password: "",
+      new_password: "",
+      confirm_password: "",
+    });
+    setIsUpdatingPassword(true);
+  };
+
+  const handlePasswordSubmit = async (): Promise<boolean> => {
+    setPasswordUpdateError(null);
+    const oldPw = passwordForm.old_password.trim();
+    const newPw = passwordForm.new_password.trim();
+    const confirmPw = passwordForm.confirm_password.trim();
+
+    if (!oldPw || !newPw || !confirmPw) {
+      setPasswordUpdateError("Please fill in all fields.");
+      return false;
+    }
+    if (newPw !== confirmPw) {
+      setPasswordUpdateError("New passwords do not match.");
+      return false;
+    }
+    if (newPw.length < 8) {
+      setPasswordUpdateError("New password must be at least 8 characters.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleEditSubmit = async (_e: React.FormEvent): Promise<boolean> => {
     if (!user) return false;
 
     const token = localStorage.getItem("accessToken");
@@ -151,6 +193,17 @@ export const useProfile = () => {
       setProfileSaveError(null);
       setSavingProfile(false);
       setIsEditingProfile(false);
+    },
+    isUpdatingPassword,
+    passwordForm,
+    setPasswordForm,
+    passwordUpdateError,
+    passwordModalKey,
+    handlePasswordOpen,
+    handlePasswordSubmit,
+    closePassword: () => {
+      setPasswordUpdateError(null);
+      setIsUpdatingPassword(false);
     },
   };
 };

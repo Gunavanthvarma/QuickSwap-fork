@@ -100,9 +100,18 @@ describe('Profile Components', () => {
     describe('SettingsTab', () => {
         it('calls onEditProfile when edit button is clicked', () => {
             const onEditProfile = vi.fn();
-            render(<SettingsTab onEditProfile={onEditProfile} />);
+            const onUpdatePassword = vi.fn();
+            render(<SettingsTab onEditProfile={onEditProfile} onUpdatePassword={onUpdatePassword} />);
             fireEvent.click(screen.getByText(/edit profile/i));
             expect(onEditProfile).toHaveBeenCalled();
+        });
+
+        it('calls onUpdatePassword when update password button is clicked', () => {
+            const onEditProfile = vi.fn();
+            const onUpdatePassword = vi.fn();
+            render(<SettingsTab onEditProfile={onEditProfile} onUpdatePassword={onUpdatePassword} />);
+            fireEvent.click(screen.getByText(/update password/i));
+            expect(onUpdatePassword).toHaveBeenCalled();
         });
     });
 });

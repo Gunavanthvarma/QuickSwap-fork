@@ -59,4 +59,10 @@ export interface EditFormState {
   mobile: string;
 }
 
+export interface UpdatePasswordFormState {
+  old_password: string;
+  new_password: string;
+  confirm_password: string;
+}
+
 export type ActiveTab = "listings" | "bids" | "settings";
