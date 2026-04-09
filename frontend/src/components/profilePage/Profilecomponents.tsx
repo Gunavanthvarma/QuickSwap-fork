@@ -46,11 +46,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, displayName 
           src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=600"
           alt="User avatar"
         />
-        <span className="profile-verified">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </span>
       </div>
       <div className="profile-info">
         <h1>{displayName}</h1>
