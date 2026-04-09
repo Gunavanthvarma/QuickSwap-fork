@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  formatTimeRemainingFromBackendString,
+  formatTimeRemainingFromEnd,
+} from "../../utils/formatTimeRemaining";
 import type {
   ProfileResponse,
   EditFormState,
@@ -283,7 +287,7 @@ export const useMyListings = () => {
             name: item.title,
             image: item.image || "",
             currentBid: formatCurrency(item.current_bid),
-            timeLeft: item.time_left || "Ended",
+            timeLeft: formatTimeRemainingFromBackendString(item.time_left || "Ended"),
             bids: item.total_bids || 0,
             status: item.status?.toLowerCase() === "active" ? "active" : "sold",
           }))
@@ -342,7 +346,9 @@ export const useMyBids = () => {
           image: item.image || "",
           yourBid: formatCurrency(item.bid_amount),
           currentBid: formatCurrency(item.current_bid),
-          timeLeft: item.time_left || "Ended",
+          timeLeft: item.auction_end_time
+            ? formatTimeRemainingFromEnd(item.auction_end_time)
+            : formatTimeRemainingFromBackendString(item.time_left || "Ended"),
           status,
         };
       });

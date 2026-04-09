@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import "./auction_detail.css";
+import {
+  formatTimeRemainingFromBackendString,
+  formatTimeRemainingFromEnd,
+} from "../../utils/formatTimeRemaining";
 
 interface SingleListingResponse {
   listing_id: string;
@@ -69,6 +73,7 @@ const AuctionDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteUiMessage, setDeleteUiMessage] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -121,6 +126,12 @@ const AuctionDetail: React.FC = () => {
   }, [listingId]);
 
   useEffect(() => {
+    if (!listing || listing.status.toLowerCase() !== "active") return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [listing]);
+
+  useEffect(() => {
     if (listing && listing.status.toLowerCase() !== "active") {
       setDeleteConfirmOpen(false);
     }
@@ -163,8 +174,8 @@ const AuctionDetail: React.FC = () => {
     starting_bid,
     buy_now_price,
     total_bids,
-    time_left,
     status,
+    auction_end_time,
     has_joined,
     is_highest_bidder,
     caller_last_bid,
@@ -172,6 +183,10 @@ const AuctionDetail: React.FC = () => {
     condition,
     brand,
   } = listing;
+
+  const timeLeftDisplay = auction_end_time
+    ? formatTimeRemainingFromEnd(auction_end_time, now)
+    : formatTimeRemainingFromBackendString(listing.time_left);
 
   const listingIsActive = status.toLowerCase() === "active";
   const canBid = !isListingOwner && listingIsActive;
@@ -273,7 +288,7 @@ const AuctionDetail: React.FC = () => {
             </div>
             <div>
               <span className="auction-label">Time left</span>
-              <span className="auction-value">{time_left}</span>
+              <span className="auction-value">{timeLeftDisplay}</span>
             </div>
             <div>
               <span className="auction-label">Bids</span>
