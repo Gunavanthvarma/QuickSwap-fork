@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import "./auction_detail.css";
 
@@ -40,6 +41,17 @@ const getApiUrl = (path: string): string => {
   return apiBase ? `${apiBase.replace(/\/$/, "")}${path}` : path;
 };
 
+function currentUserIdFromStorage(): string | null {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { id?: string };
+    return typeof parsed?.id === "string" ? parsed.id : null;
+  } catch {
+    return null;
+  }
+}
+
 const AuctionDetail: React.FC = () => {
   const navigate = useNavigate();
   const { id: paramId } = useParams();
@@ -55,6 +67,8 @@ const AuctionDetail: React.FC = () => {
   const [bidAmount, setBidAmount] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteUiMessage, setDeleteUiMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -106,6 +120,19 @@ const AuctionDetail: React.FC = () => {
     fetchListing();
   }, [listingId]);
 
+  useEffect(() => {
+    if (listing && listing.status.toLowerCase() !== "active") {
+      setDeleteConfirmOpen(false);
+    }
+  }, [listing]);
+
+  const isListingOwner = useMemo(() => {
+    if (!listing) return false;
+    if (listing.is_seller) return true;
+    const me = currentUserIdFromStorage();
+    return Boolean(me && listing.seller_id && me === listing.seller_id);
+  }, [listing]);
+
   if (loading) {
     return (
       <div className="auction-page">
@@ -131,13 +158,13 @@ const AuctionDetail: React.FC = () => {
     description,
     images,
     seller_name,
+    seller_id,
     current_bid,
     starting_bid,
     buy_now_price,
     total_bids,
     time_left,
     status,
-    is_seller,
     has_joined,
     is_highest_bidder,
     caller_last_bid,
@@ -146,11 +173,12 @@ const AuctionDetail: React.FC = () => {
     brand,
   } = listing;
 
-  const canBid = !is_seller && status.toLowerCase() === "active";
+  const listingIsActive = status.toLowerCase() === "active";
+  const canBid = !isListingOwner && listingIsActive;
 
   // Decide primary call-to-action text based on backend participation state.
   let primaryCtaLabel = "Join auction";
-  if (is_seller) {
+  if (isListingOwner) {
     primaryCtaLabel = "Manage listing";
   } else if (has_joined && is_highest_bidder) {
     primaryCtaLabel = "You are leading - raise max bid";
@@ -160,6 +188,50 @@ const AuctionDetail: React.FC = () => {
 
   return (
     <div className="auction-page">
+      {deleteConfirmOpen && listingIsActive &&
+        createPortal(
+          <div
+            className="auction-delete-overlay"
+            role="presentation"
+            onClick={() => setDeleteConfirmOpen(false)}
+          >
+            <div
+              className="auction-delete-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="auction-delete-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="auction-delete-title">Delete listing</h2>
+              <p className="auction-delete-modal-text">
+                Are you sure you want to delete this listing? This cannot be undone.
+              </p>
+              <div className="auction-delete-modal-actions">
+                <button
+                  type="button"
+                  className="auction-btn-ghost"
+                  onClick={() => setDeleteConfirmOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="auction-btn-danger"
+                  onClick={() => {
+                    setDeleteConfirmOpen(false);
+                    setDeleteUiMessage(
+                      "Listing deletion is not available yet — the server does not support it in this build."
+                    );
+                  }}
+                >
+                  Delete listing
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       <button className="auction-back" onClick={() => navigate(-1)}>
         Back to results
       </button>
@@ -214,7 +286,7 @@ const AuctionDetail: React.FC = () => {
               <span className="auction-label">Current bid</span>
               <div className="auction-price-line">
                 <span className="auction-price">{formatCurrency(current_bid)}</span>
-                {!is_seller && has_joined && (
+                {!isListingOwner && has_joined && (
                   <span
                     className={
                       "auction-badge " +
@@ -232,7 +304,7 @@ const AuctionDetail: React.FC = () => {
               <span className="auction-value">{formatCurrency(starting_bid)}</span>
             </div>
 
-            {!is_seller && has_joined && (
+            {!isListingOwner && has_joined && (
               <div className="auction-last-bid">
                 <span className="auction-label">Your last bid</span>
                 <span className="auction-value">
@@ -248,6 +320,26 @@ const AuctionDetail: React.FC = () => {
               </div>
             )}
           </div>
+
+          {isListingOwner && listingIsActive && (
+            <div className="auction-seller-actions">
+              <button
+                type="button"
+                className="auction-btn-delete-listing"
+                onClick={() => {
+                  setDeleteUiMessage(null);
+                  setDeleteConfirmOpen(true);
+                }}
+              >
+                Delete listing
+              </button>
+              {deleteUiMessage ? (
+                <p className="auction-delete-ui-message" role="status">
+                  {deleteUiMessage}
+                </p>
+              ) : null}
+            </div>
+          )}
 
           {canBid && (
             <div className="auction-actions">

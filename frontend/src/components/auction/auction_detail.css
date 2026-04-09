@@ -252,6 +252,99 @@
   color: #6b7280;
 }
 
+/* Seller: delete listing (owner only) */
+.auction-seller-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.auction-btn-delete-listing {
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background-color: #ffffff;
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.16s ease-out, border-color 0.16s ease-out;
+}
+
+.auction-btn-delete-listing:hover {
+  background-color: #fef2f2;
+  border-color: #f87171;
+}
+
+.auction-delete-ui-message {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  max-width: 420px;
+  line-height: 1.4;
+}
+
+/* Delete confirmation modal */
+.auction-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.auction-delete-modal {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+}
+
+.auction-delete-modal h2 {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+  color: #111827;
+}
+
+.auction-delete-modal-text {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
+.auction-delete-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.auction-btn-danger {
+  border-radius: 999px;
+  border: 1px solid #dc2626;
+  background-color: #ef4444;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.16s ease-out, border-color 0.16s ease-out;
+}
+
+.auction-btn-danger:hover {
+  background-color: #dc2626;
+  border-color: #b91c1c;
+}
+
 /* Details section */
 .auction-details {
   margin-top: 8px;
