@@ -19,6 +19,7 @@ const ProfilePage: React.FC = () => {
   const {
     user, loading, error, displayName,
     isEditingProfile, editForm, setEditForm,
+    profileSaveError, savingProfile, profileEditModalKey,
     handleEditOpen, handleEditSubmit, closeEdit,
   } = useProfile();
 
@@ -42,11 +43,14 @@ const ProfilePage: React.FC = () => {
     <div className="profile-page">
       {isEditingProfile && (
         <EditProfileModal
+          key={profileEditModalKey}
           user={user}
           editForm={editForm}
           setEditForm={setEditForm}
           onSubmit={handleEditSubmit}
           onClose={closeEdit}
+          saveError={profileSaveError}
+          saving={savingProfile}
         />
       )}
 

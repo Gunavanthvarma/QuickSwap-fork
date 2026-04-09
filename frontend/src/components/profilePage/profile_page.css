@@ -657,6 +657,31 @@ body {
   gap: 16px;
 }
 
+.edit-profile-error {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  background: var(--error-soft);
+  color: var(--error);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--error);
+}
+
+.edit-profile-success {
+  margin: 0 0 8px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  background: var(--success-soft);
+  color: var(--success);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--success);
+}
+
+.edit-profile-actions--single {
+  justify-content: flex-end;
+}
+
 .disabled-input {
   background-color: var(--bg-alt) !important;
   color: var(--muted) !important;

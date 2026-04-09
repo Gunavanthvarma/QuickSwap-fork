@@ -86,42 +86,87 @@ interface EditProfileModalProps {
   user: ProfileResponse;
   editForm: EditFormState;
   setEditForm: React.Dispatch<React.SetStateAction<EditFormState>>;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent) => Promise<boolean>;
   onClose: () => void;
+  saveError?: string | null;
+  saving?: boolean;
 }
 
-export const EditProfileModal: React.FC<EditProfileModalProps> = ({ user, editForm, setEditForm, onSubmit, onClose }) => (
-  <div className="edit-profile-modal-overlay">
-    <div className="edit-profile-modal-content">
-      <h2>Edit Profile</h2>
-      <form onSubmit={onSubmit} className="edit-profile-form">
-        <div className="settings-group">
-          <label>First Name</label>
-          <input type="text" value={editForm.first_name} required
-            onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))} />
+export const EditProfileModal: React.FC<EditProfileModalProps> = ({
+  user,
+  editForm,
+  setEditForm,
+  onSubmit,
+  onClose,
+  saveError,
+  saving = false,
+}) => {
+  const [showSuccess, setShowSuccess] = React.useState(false);
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ok = await onSubmit(e);
+    if (ok) setShowSuccess(true);
+  };
+
+  if (showSuccess) {
+    return (
+      <div className="edit-profile-modal-overlay">
+        <div className="edit-profile-modal-content">
+          <h2>Edit Profile</h2>
+          <p className="edit-profile-success" role="status">
+            changes implemented successfully
+          </p>
+          <div className="edit-profile-actions edit-profile-actions--single">
+            <button type="button" className="btn primary" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
-        <div className="settings-group">
-          <label>Last Name</label>
-          <input type="text" value={editForm.last_name} required
-            onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))} />
-        </div>
-        <div className="settings-group">
-          <label>Phone number</label>
-          <input type="tel" value={editForm.mobile} required
-            onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))} />
-        </div>
-        <div className="settings-group">
-          <label>Email address</label>
-          <input type="email" value={user.email} disabled className="disabled-input" />
-        </div>
-        <div className="edit-profile-actions">
-          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary">Save</button>
-        </div>
-      </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="edit-profile-modal-overlay">
+      <div className="edit-profile-modal-content">
+        <h2>Edit Profile</h2>
+        <form onSubmit={handleFormSubmit} className="edit-profile-form">
+          {saveError ? (
+            <p className="edit-profile-error" role="alert">
+              {saveError}
+            </p>
+          ) : null}
+          <div className="settings-group">
+            <label>First Name</label>
+            <input type="text" value={editForm.first_name} required disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))} />
+          </div>
+          <div className="settings-group">
+            <label>Last Name</label>
+            <input type="text" value={editForm.last_name} required disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))} />
+          </div>
+          <div className="settings-group">
+            <label>Phone number</label>
+            <input type="tel" value={editForm.mobile} required disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))} />
+          </div>
+          <div className="settings-group">
+            <label>Email address</label>
+            <input type="email" value={user.email} disabled className="disabled-input" />
+          </div>
+          <div className="edit-profile-actions">
+            <button type="button" className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="submit" className="btn primary" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── ListingsTab ──────────────────────────────────────────────────────────────
 
@@ -258,3 +303,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onEditProfile }) => (
     </div>
   </div>
 );
+
+/** No-op export so stale imports of the removed success banner do not break the bundle. */
+export const ProfileUpdateSuccessBanner: React.FC<{
+  visible?: boolean;
+  onDismiss?: () => void;
+}> = () => null;

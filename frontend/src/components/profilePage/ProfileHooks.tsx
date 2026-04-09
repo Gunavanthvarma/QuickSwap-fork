@@ -40,6 +40,10 @@ export const useProfile = () => {
     last_name: "",
     mobile: "",
   });
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  /** Bumps when opening the edit modal so the modal remounts with fresh local state. */
+  const [profileEditModalKey, setProfileEditModalKey] = useState(0);
 
   const navigate = useNavigate();
 
@@ -63,6 +67,8 @@ export const useProfile = () => {
 
   const handleEditOpen = () => {
     if (user) {
+      setProfileSaveError(null);
+      setProfileEditModalKey((k) => k + 1);
       setEditForm({
         first_name: user.first_name || "",
         last_name: user.last_name || "",
@@ -72,15 +78,63 @@ export const useProfile = () => {
     }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: wire up PUT /api/profile when backend route is ready
-    if (user) {
-      const updatedUser = { ...user, ...editForm };
+  const handleEditSubmit = async (e: React.FormEvent): Promise<boolean> => {
+    if (!user) return false;
+
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/signin");
+      return false;
+    }
+
+    const payload = {
+      first_name: editForm.first_name.trim(),
+      last_name: editForm.last_name.trim(),
+      mobile: editForm.mobile.trim(),
+    };
+
+    setProfileSaveError(null);
+    setSavingProfile(true);
+    try {
+      const response = await fetch(getApiUrl("/api/profile/update"), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 401) {
+          navigate("/signin");
+          return false;
+        }
+        const msg =
+          typeof data === "object" &&
+          data !== null &&
+          "error" in data &&
+          typeof (data as { error?: unknown }).error === "string"
+            ? (data as { error: string }).error
+            : "Failed to update profile";
+        setProfileSaveError(msg);
+        return false;
+      }
+
+      const updatedUser: ProfileResponse = { ...user, ...payload };
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
+      return true;
+    } catch (err) {
+      console.error("[API] /api/profile/update error:", err);
+      setProfileSaveError(
+        err instanceof Error ? err.message : "Failed to update profile"
+      );
+      return false;
+    } finally {
+      setSavingProfile(false);
     }
-    setIsEditingProfile(false);
   };
 
   const displayName =
@@ -91,8 +145,13 @@ export const useProfile = () => {
   return {
     user, loading, error, displayName,
     isEditingProfile, editForm, setEditForm,
+    profileSaveError, savingProfile, profileEditModalKey,
     handleEditOpen, handleEditSubmit,
-    closeEdit: () => setIsEditingProfile(false),
+    closeEdit: () => {
+      setProfileSaveError(null);
+      setSavingProfile(false);
+      setIsEditingProfile(false);
+    },
   };
 };
 
