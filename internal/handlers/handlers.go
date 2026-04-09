@@ -31,6 +31,9 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	mux.HandleFunc("/api/toplistings", topListingsHandler(c))
 
 	mux.HandleFunc("POST /api/auctions/{id}/bid", bidHandler(c, pg, rdb))
+	// Profile Settings Update Page
+
+	mux.HandleFunc("/api/profile/update", updateProfileHandler(c))
 	return mux
 }
 

@@ -253,6 +253,82 @@ func respondError(w http.ResponseWriter, msg string, code int) {
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
+func updateProfileHandler(c *auth.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		token := r.Header.Get("Authorization")
+		if len(token) > 7 && token[:7] == "Bearer " {
+			token = token[7:]
+		}
+		if token == "" {
+			respondError(w, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+
+		// Get user ID from Supabase Auth
+		supaURL := os.Getenv("SUPABASE_URL")
+		supaKey := os.Getenv("SUPABASE_ANON_KEY")
+		authReq, _ := http.NewRequest("GET", supaURL+"/auth/v1/user", nil)
+		authReq.Header.Set("apikey", supaKey)
+		authReq.Header.Set("Authorization", "Bearer "+token)
+		resp, err := http.DefaultClient.Do(authReq)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			respondError(w, "Invalid session", http.StatusUnauthorized)
+			return
+		}
+		defer resp.Body.Close()
+		var userData struct {
+			ID string `json:"id"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&userData); err != nil {
+			respondError(w, "Error parsing user data", http.StatusInternalServerError)
+			return
+		}
+
+		// Parse update fields
+		var req struct {
+			FirstName string `json:"first_name"`
+			LastName  string `json:"last_name"`
+			Mobile    string `json:"mobile"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Patch Supabase profiles table
+		svcKey := os.Getenv("SUPABASE_SERVICE_KEY")
+		apiKey := svcKey
+		if apiKey == "" {
+			apiKey = supaKey
+		}
+		url := supaURL + "/rest/v1/profiles?id=eq." + userData.ID
+		payload := map[string]interface{}{
+			"first_name": req.FirstName,
+			"last_name":  req.LastName,
+			"mobile":     req.Mobile,
+		}
+		b, _ := json.Marshal(payload)
+		patchReq, _ := http.NewRequest("PATCH", url, bytes.NewReader(b))
+		patchReq.Header.Set("Content-Type", "application/json")
+		patchReq.Header.Set("apikey", apiKey)
+		patchReq.Header.Set("Authorization", "Bearer "+apiKey)
+		patchReq.Header.Set("Prefer", "return=representation")
+		patchResp, err := http.DefaultClient.Do(patchReq)
+		if err != nil || patchResp.StatusCode < 200 || patchResp.StatusCode >= 300 {
+			body, _ := io.ReadAll(patchResp.Body)
+			respondError(w, "Failed to update profile: "+string(body), http.StatusInternalServerError)
+			return
+		}
+		defer patchResp.Body.Close()
+
+		respondJSON(w, map[string]string{"message": "Profile updated"})
+	}
+}
 
 // storeProfile attempts to insert a profile row into Supabase `profiles` table.
 // This is best-effort: failures are logged but do not block signup.
