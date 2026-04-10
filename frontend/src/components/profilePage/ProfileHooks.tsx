@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, type NavigateFunction } from "react-router-dom";
 import {
   formatTimeRemainingFromBackendString,
   formatTimeRemainingFromEnd,
@@ -32,6 +32,14 @@ export const getApiUrl = (path: string): string => {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${normalizedBase}${normalizedPath}`;
 };
+
+function clearAuthAndRedirectToSignIn(navigate: NavigateFunction) {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("accessTokenExpiry");
+  localStorage.removeItem("user");
+  navigate("/signin", { replace: true });
+}
 
 // ─── useProfile ───────────────────────────────────────────────────────────────
 
@@ -70,6 +78,15 @@ export const useProfile = () => {
     try {
       const token = localStorage.getItem("accessToken");
       if (!token) { navigate("/signin"); return; }
+
+      const expiryRaw = localStorage.getItem("accessTokenExpiry");
+      if (expiryRaw) {
+        const expiryMs = Number(expiryRaw);
+        if (Number.isFinite(expiryMs) && Date.now() >= expiryMs) {
+          clearAuthAndRedirectToSignIn(navigate);
+          return;
+        }
+      }
 
       const userStr = localStorage.getItem("user");
       if (!userStr) { navigate("/signin"); return; }
@@ -131,12 +148,8 @@ export const useProfile = () => {
   };
 
   const confirmDeleteAccount = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("accessTokenExpiry");
-    localStorage.removeItem("user");
     closeDeleteAccountFlow();
-    navigate("/signin", { replace: true });
+    clearAuthAndRedirectToSignIn(navigate);
   };
 
   const handlePasswordSubmit = async (): Promise<boolean> => {
@@ -190,7 +203,7 @@ export const useProfile = () => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 401) {
-          navigate("/signin");
+          clearAuthAndRedirectToSignIn(navigate);
           return false;
         }
         const msg =
@@ -279,7 +292,13 @@ export const useMyListings = () => {
       });
 
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || payload.message || "Failed to fetch listings");
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearAuthAndRedirectToSignIn(navigate);
+          return;
+        }
+        throw new Error(payload.error || payload.message || "Failed to fetch listings");
+      }
 
       const listings: ListingCardItem[] = Array.isArray(payload.listings)
         ? payload.listings.map((item: MyListingApiItem) => ({
@@ -328,7 +347,13 @@ export const useMyBids = () => {
       });
 
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || payload.message || "Failed to fetch bids");
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearAuthAndRedirectToSignIn(navigate);
+          return;
+        }
+        throw new Error(payload.error || payload.message || "Failed to fetch bids");
+      }
 
       const raw: MyBidsApiItem[] = Array.isArray(payload)
         ? payload
