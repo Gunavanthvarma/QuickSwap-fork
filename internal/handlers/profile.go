@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/quickswap/quickswap/internal/auth"
 )
@@ -915,5 +916,61 @@ func deleteAccountHandler(_ *auth.Client) http.HandlerFunc {
 		}
 
 		respondJSON(w, map[string]string{"message": "Account deleted successfully"})
+	}
+}
+
+// ---- Profile Stats ----
+
+// profileStatsHandler handles GET /api/profile/stats.
+// Returns items_sold: the number of the user's listings whose auction has ended.
+func profileStatsHandler(_ *auth.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		userID, err := getUserIDFromToken(r)
+		if err != nil {
+			respondError(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		supaURL := os.Getenv("SUPABASE_URL")
+		apiKey := supabaseAPIKey()
+
+		// Fetch only IDs of listings where seller = user and auction has already ended.
+		now := time.Now().UTC().Format(time.RFC3339)
+		url := fmt.Sprintf(
+			"%s/rest/v1/listings?seller_id=eq.%s&auction_end_time=lt.%s&select=id",
+			supaURL, userID, now,
+		)
+
+		req, _ := http.NewRequest("GET", url, nil)
+		req.Header.Set("apikey", apiKey)
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			respondError(w, "Failed to fetch listings", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			respondError(w, "Failed to fetch listings: "+string(body), http.StatusInternalServerError)
+			return
+		}
+
+		var listings []struct {
+			ID string `json:"id"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&listings); err != nil {
+			respondError(w, "Invalid response", http.StatusInternalServerError)
+			return
+		}
+
+		respondJSON(w, map[string]int{"items_sold": len(listings)})
 	}
 }

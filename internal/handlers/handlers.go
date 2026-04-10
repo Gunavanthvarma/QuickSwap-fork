@@ -35,6 +35,7 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	mux.HandleFunc("/api/profile/update", updateProfileHandler(c))
 	mux.HandleFunc("/api/profile/password", updatePasswordHandler(c))
 	mux.HandleFunc("/api/profile/account", deleteAccountHandler(c))
+	mux.HandleFunc("/api/profile/stats", profileStatsHandler(c))
 
 	// Address routes
 	mux.HandleFunc("/api/address", addressHandler(c))

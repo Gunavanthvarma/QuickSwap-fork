@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -810,5 +811,105 @@ func TestDeleteAccountHandler_Valid(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("Expected 200, got %d", rr.Code)
+	}
+}
+
+// ---- Profile Stats ----
+
+func TestProfileStatsHandler_WrongMethod(t *testing.T) {
+	ts := setupProfileMockServer()
+	defer ts.Close()
+	initProfileTestEnv(ts)
+
+	handler := profileStatsHandler(nil)
+	req := httptest.NewRequest("POST", "/api/profile/stats", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected 405, got %d", rr.Code)
+	}
+}
+
+func TestProfileStatsHandler_NoToken(t *testing.T) {
+	ts := setupProfileMockServer()
+	defer ts.Close()
+	initProfileTestEnv(ts)
+
+	handler := profileStatsHandler(nil)
+	req := httptest.NewRequest("GET", "/api/profile/stats", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401, got %d", rr.Code)
+	}
+}
+
+func TestProfileStatsHandler_Valid(t *testing.T) {
+	// Mock that returns two ended listings for the user.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/auth/v1/user":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"id": "user123", "email": "test@example.com"}`))
+		case "/rest/v1/listings":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[{"id":"list1"},{"id":"list2"}]`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+	initProfileTestEnv(ts)
+
+	handler := profileStatsHandler(nil)
+	req := httptest.NewRequest("GET", "/api/profile/stats", nil)
+	req.Header.Set("Authorization", "Bearer validtoken")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]int
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("Could not decode response: %v", err)
+	}
+	if resp["items_sold"] != 2 {
+		t.Errorf("Expected items_sold=2, got %d", resp["items_sold"])
+	}
+}
+
+func TestProfileStatsHandler_Zero(t *testing.T) {
+	// Mock that returns empty listings (no ended auctions).
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/auth/v1/user":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"id": "user123", "email": "test@example.com"}`))
+		case "/rest/v1/listings":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[]`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+	initProfileTestEnv(ts)
+
+	handler := profileStatsHandler(nil)
+	req := httptest.NewRequest("GET", "/api/profile/stats", nil)
+	req.Header.Set("Authorization", "Bearer validtoken")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected 200, got %d", rr.Code)
+	}
+
+	var resp map[string]int
+	json.NewDecoder(rr.Body).Decode(&resp)
+	if resp["items_sold"] != 0 {
+		t.Errorf("Expected items_sold=0, got %d", resp["items_sold"])
 	}
 }
