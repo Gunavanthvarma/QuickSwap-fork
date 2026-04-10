@@ -224,6 +224,8 @@ func addressHandler(_ *auth.Client) http.HandlerFunc {
 func addressByIDHandler(_ *auth.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
+		case http.MethodGet:
+			getAddressByID(w, r)
 		case http.MethodPut:
 			updateAddressHandler(w, r)
 		case http.MethodDelete:
@@ -457,6 +459,42 @@ func deleteAddressHandler(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, map[string]string{"message": "Address deleted"})
 }
 
+func getAddressByID(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromToken(r)
+	if err != nil {
+		respondError(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		respondError(w, "Address ID required", http.StatusBadRequest)
+		return
+	}
+
+	supaURL := os.Getenv("SUPABASE_URL")
+	apiKey := supabaseAPIKey()
+	url := supaURL + "/rest/v1/addresses?id=eq." + id + "&user_id=eq." + userID
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", apiKey)
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		respondError(w, "Failed to fetch address", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	var addresses []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&addresses); err != nil || len(addresses) == 0 {
+		respondError(w, "Address not found", http.StatusNotFound)
+		return
+	}
+	respondJSON(w, addresses[0])
+}
+
 func clearDefaultAddresses(supaURL, apiKey, userID string) error {
 	url := supaURL + "/rest/v1/addresses?user_id=eq." + userID + "&is_default=eq.true"
 	b, _ := json.Marshal(map[string]bool{"is_default": false})
@@ -492,11 +530,14 @@ func paymentHandler(_ *auth.Client) http.HandlerFunc {
 
 func paymentByIDHandler(_ *auth.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
+		switch r.Method {
+		case http.MethodGet:
+			getPaymentByID(w, r)
+		case http.MethodDelete:
+			deletePaymentMethodHandler(w, r)
+		default:
 			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
 		}
-		deletePaymentMethodHandler(w, r)
 	}
 }
 
@@ -648,6 +689,42 @@ func deletePaymentMethodHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, map[string]string{"message": "Payment method deleted"})
+}
+
+func getPaymentByID(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromToken(r)
+	if err != nil {
+		respondError(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		respondError(w, "Payment method ID required", http.StatusBadRequest)
+		return
+	}
+
+	supaURL := os.Getenv("SUPABASE_URL")
+	apiKey := supabaseAPIKey()
+	url := supaURL + "/rest/v1/payment_methods?id=eq." + id + "&user_id=eq." + userID
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", apiKey)
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		respondError(w, "Failed to fetch payment method", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	var methods []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&methods); err != nil || len(methods) == 0 {
+		respondError(w, "Payment method not found", http.StatusNotFound)
+		return
+	}
+	respondJSON(w, methods[0])
 }
 
 func clearDefaultPayments(supaURL, apiKey, userID string) error {
