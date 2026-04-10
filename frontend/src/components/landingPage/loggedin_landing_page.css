@@ -146,3 +146,112 @@
 .strip-card-link:hover {
   opacity: 0.7;
 }
+
+/* Empty strip: full-width, no horizontal scroll */
+.strip-scroll.strip-scroll--empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  min-height: 132px;
+  padding: 4px 0 10px;
+}
+
+.strip-scroll.strip-grid.strip-scroll--empty {
+  grid-template-columns: 1fr;
+}
+
+.strip-empty {
+  text-align: center;
+  max-width: 300px;
+  padding: 10px 12px 4px;
+}
+
+.strip-scroll.strip-grid .strip-empty {
+  grid-column: 1 / -1;
+  margin: 0 auto;
+}
+
+.strip-empty-illustration {
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.strip-empty-svg {
+  display: block;
+  width: 72px;
+  height: 72px;
+}
+
+.strip-empty-svg-stroke {
+  stroke: var(--primary, #2563eb);
+}
+
+.strip-empty-svg-stroke-soft {
+  stroke: color-mix(in srgb, var(--text, #0f172a) 28%, transparent);
+}
+
+.strip-empty-svg-fill {
+  fill: var(--primary, #2563eb);
+}
+
+.strip-empty-svg-badge {
+  fill: var(--primary, #2563eb);
+}
+
+.strip-empty-svg-plus {
+  stroke: #fff;
+}
+
+.strip-empty-title {
+  margin: 0 0 4px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text, #0f172a);
+}
+
+.strip-empty-desc {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--text, #0f172a) 72%, transparent);
+}
+
+.strip-empty-cta {
+  min-width: 158px;
+  appearance: none;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  padding: 7px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--primary, #2563eb);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transition:
+    background 0.15s ease,
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
+}
+
+.strip-empty-cta:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+
+.strip-empty-cta:active {
+  transform: scale(0.98);
+}
+
+.strip-empty.strip-empty--plain {
+  flex: 1 1 auto;
+  text-align: center;
+  padding: 16px 14px;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text, #0f172a) 65%, transparent);
+  border: 1px dashed var(--border, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  background: color-mix(in srgb, var(--card, #fff) 92%, var(--primary, #2563eb) 8%);
+}
