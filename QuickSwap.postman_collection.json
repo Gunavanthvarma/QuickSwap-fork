@@ -1,0 +1,276 @@
+{
+  "info": {
+    "name": "QuickSwap API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8082" },
+    { "key": "token",    "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Sign Up",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/signup", "host": ["{{base_url}}"], "path": ["api","auth","signup"] },
+            "body": { "mode": "raw", "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"secret123\",\n  \"mobile\": \"9876543210\"\n}" }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"secret123\"\n}" }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/logout", "host": ["{{base_url}}"], "path": ["api","auth","logout"] }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/profile", "host": ["{{base_url}}"], "path": ["api","profile"] }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/profile/update", "host": ["{{base_url}}"], "path": ["api","profile","update"] },
+            "body": { "mode": "raw", "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"mobile\": \"9876543210\"\n}" }
+          }
+        },
+        {
+          "name": "Update Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/profile/password", "host": ["{{base_url}}"], "path": ["api","profile","password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"old_password\": \"currentpassword\",\n  \"new_password\": \"newpassword123\",\n  \"re_enter_new_password\": \"newpassword123\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/profile/account", "host": ["{{base_url}}"], "path": ["api","profile","account"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listings",
+      "item": [
+        {
+          "name": "Create Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/createlisting", "host": ["{{base_url}}"], "path": ["api","createlisting"] },
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Vintage Camera\",\n  \"subtitle\": \"Canon AE-1\",\n  \"description\": \"Great condition vintage film camera\",\n  \"category\": \"Electronics\",\n  \"subcategory\": \"Cameras\",\n  \"condition\": \"Good\",\n  \"brand\": \"Canon\",\n  \"color\": \"Black\",\n  \"size\": \"Medium\",\n  \"images\": [\"https://example.com/img1.jpg\"],\n  \"starting_bid\": 50.00,\n  \"buy_now_price\": 150.00,\n  \"auction_start_time\": \"2026-04-10T10:00:00Z\",\n  \"auction_end_time\": \"2026-04-17T10:00:00Z\",\n  \"location\": \"Chennai, India\",\n  \"notes\": \"No scratches\"\n}" }
+          }
+        },
+        {
+          "name": "My Listings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/mylistings", "host": ["{{base_url}}"], "path": ["api","mylistings"] }
+          }
+        },
+        {
+          "name": "Get Listing",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/listing?id=LISTING_ID", "host": ["{{base_url}}"], "path": ["api","listing"], "query": [{ "key": "id", "value": "LISTING_ID" }] }
+          }
+        },
+        {
+          "name": "Update Listing",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/listing?id=LISTING_ID", "host": ["{{base_url}}"], "path": ["api","listing"], "query": [{ "key": "id", "value": "LISTING_ID" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Updated Camera Title\",\n  \"description\": \"Updated description\",\n  \"category\": \"Electronics\",\n  \"condition\": \"Excellent\",\n  \"images\": [\"https://example.com/img1.jpg\"],\n  \"buy_now_price\": 175.00,\n  \"auction_end_time\": \"2026-04-24T10:00:00Z\",\n  \"location\": \"Chennai, India\",\n  \"notes\": \"Minor wear\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Listing",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/listing?id=LISTING_ID", "host": ["{{base_url}}"], "path": ["api","listing"], "query": [{ "key": "id", "value": "LISTING_ID" }] }
+          }
+        },
+        {
+          "name": "Top Listings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/toplistings", "host": ["{{base_url}}"], "path": ["api","toplistings"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bids",
+      "item": [
+        {
+          "name": "My Bids",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/mybids", "host": ["{{base_url}}"], "path": ["api","mybids"] }
+          }
+        },
+        {
+          "name": "Place Bid",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/auctions/AUCTION_ID/bid", "host": ["{{base_url}}"], "path": ["api","auctions","AUCTION_ID","bid"] },
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 75.00\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Addresses",
+      "item": [
+        {
+          "name": "Get All Addresses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/address", "host": ["{{base_url}}"], "path": ["api","address"] }
+          }
+        },
+        {
+          "name": "Add Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/address", "host": ["{{base_url}}"], "path": ["api","address"] },
+            "body": { "mode": "raw", "raw": "{\n  \"full_name\": \"John Doe\",\n  \"street1\": \"123 Main St\",\n  \"street2\": \"Apt 4B\",\n  \"city\": \"Chennai\",\n  \"state\": \"TN\",\n  \"zip\": \"600001\",\n  \"country\": \"India\",\n  \"is_default\": true\n}" }
+          }
+        },
+        {
+          "name": "Get Address",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/address/ADDRESS_ID", "host": ["{{base_url}}"], "path": ["api","address","ADDRESS_ID"] }
+          }
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/address/ADDRESS_ID", "host": ["{{base_url}}"], "path": ["api","address","ADDRESS_ID"] },
+            "body": { "mode": "raw", "raw": "{\n  \"full_name\": \"John Doe\",\n  \"street1\": \"456 New Street\",\n  \"street2\": \"\",\n  \"city\": \"Mumbai\",\n  \"state\": \"MH\",\n  \"zip\": \"400001\",\n  \"country\": \"India\",\n  \"is_default\": false\n}" }
+          }
+        },
+        {
+          "name": "Delete Address",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/address/ADDRESS_ID", "host": ["{{base_url}}"], "path": ["api","address","ADDRESS_ID"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Methods",
+      "item": [
+        {
+          "name": "Get All Payment Methods",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/add-payment", "host": ["{{base_url}}"], "path": ["api","add-payment"] }
+          }
+        },
+        {
+          "name": "Add Payment Method",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/add-payment", "host": ["{{base_url}}"], "path": ["api","add-payment"] },
+            "body": { "mode": "raw", "raw": "{\n  \"card_type\": \"Visa\",\n  \"last4\": \"4242\",\n  \"expiry_month\": 12,\n  \"expiry_year\": 2027,\n  \"is_default\": true\n}" }
+          }
+        },
+        {
+          "name": "Get Payment Method",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/add-payment/PAYMENT_ID", "host": ["{{base_url}}"], "path": ["api","add-payment","PAYMENT_ID"] }
+          }
+        },
+        {
+          "name": "Delete Payment Method",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/add-payment/PAYMENT_ID", "host": ["{{base_url}}"], "path": ["api","add-payment","PAYMENT_ID"] }
+          }
+        }
+      ]
+    }
+  ]
+}

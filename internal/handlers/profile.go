@@ -54,6 +54,43 @@ func supabaseAPIKey() string {
 	return os.Getenv("SUPABASE_ANON_KEY")
 }
 
+// getUserWithEmail returns both the user ID and email from the bearer token.
+func getUserWithEmail(r *http.Request) (id, email, rawToken string, err error) {
+	rawToken = r.Header.Get("Authorization")
+	if len(rawToken) > 7 && rawToken[:7] == "Bearer " {
+		rawToken = rawToken[7:]
+	}
+	if rawToken == "" {
+		return "", "", "", fmt.Errorf("authorization header required")
+	}
+
+	supaURL := os.Getenv("SUPABASE_URL")
+	supaKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	req, _ := http.NewRequest("GET", supaURL+"/auth/v1/user", nil)
+	req.Header.Set("apikey", supaKey)
+	req.Header.Set("Authorization", "Bearer "+rawToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to verify token")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", "", "", fmt.Errorf("invalid or expired token")
+	}
+
+	var user struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return "", "", "", fmt.Errorf("invalid auth response")
+	}
+	return user.ID, user.Email, rawToken, nil
+}
+
 // ---- Profile Handlers ----
 
 func profileHandler(_ *auth.Client) http.HandlerFunc {
@@ -743,4 +780,140 @@ func clearDefaultPayments(supaURL, apiKey, userID string) error {
 		return fmt.Errorf("failed to clear default payments: status %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// ---- Update Password ----
+
+// updatePasswordHandler handles PUT /api/profile/password.
+// Accepts old_password, new_password, re_enter_new_password.
+// Verifies the old password before applying the update.
+func updatePasswordHandler(_ *auth.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		userID, email, token, err := getUserWithEmail(r)
+		if err != nil {
+			respondError(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		_ = userID // used implicitly via token ownership
+
+		var req struct {
+			OldPassword     string `json:"old_password"`
+			NewPassword     string `json:"new_password"`
+			ReEnterPassword string `json:"re_enter_new_password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if req.OldPassword == "" || req.NewPassword == "" || req.ReEnterPassword == "" {
+			respondError(w, "old_password, new_password, and re_enter_new_password are required", http.StatusBadRequest)
+			return
+		}
+		if req.NewPassword != req.ReEnterPassword {
+			respondError(w, "new_password and re_enter_new_password do not match", http.StatusBadRequest)
+			return
+		}
+		if len(req.NewPassword) < 6 {
+			respondError(w, "New password must be at least 6 characters", http.StatusBadRequest)
+			return
+		}
+
+		supaURL := os.Getenv("SUPABASE_URL")
+		supaKey := os.Getenv("SUPABASE_ANON_KEY")
+
+		// Verify old password by attempting a login
+		loginPayload, _ := json.Marshal(map[string]string{
+			"email":    email,
+			"password": req.OldPassword,
+		})
+		loginReq, _ := http.NewRequest("POST", supaURL+"/auth/v1/token?grant_type=password", bytes.NewReader(loginPayload))
+		loginReq.Header.Set("Content-Type", "application/json")
+		loginReq.Header.Set("apikey", supaKey)
+
+		loginResp, err := http.DefaultClient.Do(loginReq)
+		if err != nil {
+			respondError(w, "Failed to verify old password", http.StatusInternalServerError)
+			return
+		}
+		defer loginResp.Body.Close()
+		if loginResp.StatusCode != http.StatusOK {
+			respondError(w, "Old password is incorrect", http.StatusUnauthorized)
+			return
+		}
+
+		// Update password via Supabase Auth (user's own token)
+		updatePayload, _ := json.Marshal(map[string]string{"password": req.NewPassword})
+		updateReq, _ := http.NewRequest("PUT", supaURL+"/auth/v1/user", bytes.NewReader(updatePayload))
+		updateReq.Header.Set("Content-Type", "application/json")
+		updateReq.Header.Set("apikey", supaKey)
+		updateReq.Header.Set("Authorization", "Bearer "+token)
+
+		updateResp, err := http.DefaultClient.Do(updateReq)
+		if err != nil {
+			respondError(w, "Failed to update password", http.StatusInternalServerError)
+			return
+		}
+		defer updateResp.Body.Close()
+
+		if updateResp.StatusCode < 200 || updateResp.StatusCode >= 300 {
+			body, _ := io.ReadAll(updateResp.Body)
+			respondError(w, "Failed to update password: "+string(body), http.StatusInternalServerError)
+			return
+		}
+
+		respondJSON(w, map[string]string{"message": "Password updated successfully"})
+	}
+}
+
+// ---- Delete Account ----
+
+// deleteAccountHandler handles DELETE /api/profile/account.
+// Permanently removes the user from Supabase Auth (requires service role key).
+func deleteAccountHandler(_ *auth.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		userID, err := getUserIDFromToken(r)
+		if err != nil {
+			respondError(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		svcKey := os.Getenv("SUPABASE_SERVICE_KEY")
+		if svcKey == "" {
+			respondError(w, "Server configuration error: service key not set", http.StatusInternalServerError)
+			return
+		}
+
+		supaURL := os.Getenv("SUPABASE_URL")
+
+		// Delete via Supabase Admin API — requires service role key
+		delReq, _ := http.NewRequest("DELETE", supaURL+"/auth/v1/admin/users/"+userID, nil)
+		delReq.Header.Set("apikey", svcKey)
+		delReq.Header.Set("Authorization", "Bearer "+svcKey)
+
+		resp, err := http.DefaultClient.Do(delReq)
+		if err != nil {
+			respondError(w, "Failed to delete account", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			body, _ := io.ReadAll(resp.Body)
+			respondError(w, "Failed to delete account: "+string(body), http.StatusInternalServerError)
+			return
+		}
+
+		respondJSON(w, map[string]string{"message": "Account deleted successfully"})
+	}
 }
