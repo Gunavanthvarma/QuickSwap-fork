@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { StripEmptyStateView } from "../landingPage/top_listings_strip";
 import type {
   ProfileResponse,
   EditFormState,
@@ -26,14 +27,6 @@ export const ProfileNavbar: React.FC = () => {
         <button className="navbar-link-button" onClick={() => navigate("/start_selling")}>Sell</button>
         <button className="navbar-link-button active" onClick={() => navigate("/profile")}>Profile</button>
       </nav>
-      <div className="navbar-actions">
-        <button className="btn ghost-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-        </button>
-      </div>
     </header>
   );
 };
@@ -361,7 +354,21 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
   const navigate = useNavigate();
   if (loading) return <div>Loading your listings...</div>;
   if (error) return <div>{error}</div>;
-  if (listings.length === 0) return <div>No listings found.</div>;
+  if (listings.length === 0) {
+    return (
+      <div className="profile-listings-empty">
+        <div className="strip-scroll strip-scroll--empty">
+          <StripEmptyStateView
+            config={{
+              illustration: "first-listing",
+              ctaLabel: "Start your first listing",
+              onCta: () => navigate("/start_selling"),
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="listings-grid">
       {listings.map((listing) => (
@@ -407,7 +414,21 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
   const navigate = useNavigate();
   if (loading) return <div>Loading your bids...</div>;
   if (error) return <div>{error}</div>;
-  if (bids.length === 0) return <div>No bids found.</div>;
+  if (bids.length === 0) {
+    return (
+      <div className="profile-bids-empty">
+        <div className="strip-scroll strip-scroll--empty">
+          <StripEmptyStateView
+            config={{
+              illustration: "no-bids",
+              ctaLabel: "Browse live auctions",
+              onCta: () => navigate("/"),
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bids-grid">

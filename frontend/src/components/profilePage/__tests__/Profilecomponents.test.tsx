@@ -38,6 +38,11 @@ describe('Profile Components', () => {
             expect(screen.getByText(/error message/i)).toBeInTheDocument();
         });
 
+        it('renders empty state with CTA when there are no listings', () => {
+            render(<ListingsTab listings={[]} loading={false} error={null} />, { wrapper: BrowserRouter });
+            expect(screen.getByRole('button', { name: /start your first listing/i })).toBeInTheDocument();
+        });
+
         it('renders list of listings', () => {
             render(<ListingsTab listings={mockListings} loading={false} error={null} />, { wrapper: BrowserRouter });
             expect(screen.getByText('Test Listing')).toBeInTheDocument();
@@ -64,6 +69,11 @@ describe('Profile Components', () => {
                 status: 'winning',
             },
         ];
+
+        it('renders empty state with CTA when there are no bids', () => {
+            render(<BidsTab bids={[]} loading={false} error={null} />, { wrapper: BrowserRouter });
+            expect(screen.getByRole('button', { name: /browse live auctions/i })).toBeInTheDocument();
+        });
 
         it('renders list of bids', () => {
             render(<BidsTab bids={mockBids} loading={false} error={null} />, { wrapper: BrowserRouter });

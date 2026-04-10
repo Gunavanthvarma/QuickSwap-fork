@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import "./profile_page.css";
+import "../landingPage/loggedin_landing_page.css";
 
 import type { ActiveTab } from "./Profile.types";
 import { useProfile, useMyListings, useMyBids } from "./ProfileHooks";

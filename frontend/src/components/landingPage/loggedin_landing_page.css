@@ -178,6 +178,10 @@
   justify-content: center;
 }
 
+.strip-empty.strip-empty--cta-only .strip-empty-illustration {
+  margin-bottom: 10px;
+}
+
 .strip-empty-svg {
   display: block;
   width: 72px;

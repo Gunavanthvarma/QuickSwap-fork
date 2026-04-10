@@ -8,12 +8,16 @@ export interface StripItem {
   tag: string;
 }
 
-export type StripEmptyIllustration = "ending" | "latest";
+export type StripEmptyIllustration =
+  | "ending"
+  | "latest"
+  | "first-listing"
+  | "no-bids";
 
 export interface StripEmptyStateConfig {
   illustration: StripEmptyIllustration;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   ctaLabel: string;
   onCta: () => void;
 }
@@ -32,6 +36,89 @@ interface TopListingsStripProps {
 const StripEmptyIllustrationSvg: React.FC<{ variant: StripEmptyIllustration }> = ({
   variant,
 }) => {
+  if (variant === "first-listing") {
+    return (
+      <svg
+        className="strip-empty-svg"
+        viewBox="0 0 120 120"
+        aria-hidden
+      >
+        <path
+          d="M38 40h40l16 16v38a8 8 0 0 1-8 8H38a8 8 0 0 1-8-8V48a8 8 0 0 1 8-8z"
+          fill="none"
+          strokeWidth="3"
+          strokeLinejoin="round"
+          className="strip-empty-svg-stroke"
+        />
+        <path
+          d="M48 58h28M48 72h20"
+          fill="none"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          className="strip-empty-svg-stroke-soft"
+        />
+        <circle cx="82" cy="46" r="16" className="strip-empty-svg-badge" />
+        <path
+          d="M82 38v16M74 46h16"
+          fill="none"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          className="strip-empty-svg-plus"
+        />
+      </svg>
+    );
+  }
+  if (variant === "no-bids") {
+    return (
+      <svg
+        className="strip-empty-svg"
+        viewBox="0 0 120 120"
+        aria-hidden
+      >
+        <rect
+          x="26"
+          y="50"
+          width="50"
+          height="38"
+          rx="8"
+          fill="none"
+          strokeWidth="3"
+          strokeLinejoin="round"
+          className="strip-empty-svg-stroke"
+        />
+        <path
+          d="M51 50V34"
+          fill="none"
+          strokeWidth="3"
+          strokeLinecap="round"
+          className="strip-empty-svg-stroke"
+        />
+        <path
+          d="M36 64h30M36 76h22"
+          fill="none"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          className="strip-empty-svg-stroke-soft"
+        />
+        <path
+          d="M84 70V46M76 54l8-8 8 8"
+          fill="none"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="strip-empty-svg-stroke"
+        />
+        <circle cx="84" cy="88" r="14" className="strip-empty-svg-badge" />
+        <path
+          d="M84 82v12M78 88h12"
+          fill="none"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          className="strip-empty-svg-plus"
+        />
+      </svg>
+    );
+  }
   if (variant === "ending") {
     return (
       <svg
@@ -87,6 +174,33 @@ const StripEmptyIllustrationSvg: React.FC<{ variant: StripEmptyIllustration }> =
   );
 };
 
+export const StripEmptyStateView: React.FC<{ config: StripEmptyStateConfig }> = ({
+  config,
+}) => {
+  const { illustration, title, description, ctaLabel, onCta } = config;
+  const minimal = !title?.trim() && !description?.trim();
+
+  return (
+    <div
+      className={`strip-empty${minimal ? " strip-empty--cta-only" : ""}`}
+      role="status"
+    >
+      <div className="strip-empty-illustration">
+        <StripEmptyIllustrationSvg variant={illustration} />
+      </div>
+      {title?.trim() ? (
+        <h3 className="strip-empty-title">{title}</h3>
+      ) : null}
+      {description?.trim() ? (
+        <p className="strip-empty-desc">{description}</p>
+      ) : null}
+      <button type="button" className="strip-empty-cta" onClick={onCta}>
+        {ctaLabel}
+      </button>
+    </div>
+  );
+};
+
 const TopListingsStrip: React.FC<TopListingsStripProps> = ({
   title,
   items,
@@ -116,22 +230,7 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
         )}
       </div>
       <div className={scrollClass}>
-        {isEmpty && emptyState && (
-          <div className="strip-empty" role="status">
-            <div className="strip-empty-illustration">
-              <StripEmptyIllustrationSvg variant={emptyState.illustration} />
-            </div>
-            <h3 className="strip-empty-title">{emptyState.title}</h3>
-            <p className="strip-empty-desc">{emptyState.description}</p>
-            <button
-              type="button"
-              className="strip-empty-cta"
-              onClick={emptyState.onCta}
-            >
-              {emptyState.ctaLabel}
-            </button>
-          </div>
-        )}
+        {isEmpty && emptyState && <StripEmptyStateView config={emptyState} />}
         {isEmpty && !emptyState && (
           <div className="strip-empty strip-empty--plain">{emptyText}</div>
         )}
