@@ -78,6 +78,10 @@ func EnsureAuctionCached(ctx context.Context, rdb *redis.Client, pg *pgxpool.Poo
 	pipe := rdb.Pipeline()
 	pipe.Set(ctx, priceKey, startPrice, 0)
 	pipe.Set(ctx, fmt.Sprintf("auction:%s:end_time", auctionID), endTime.Unix(), 0)
+	pipe.ZAdd(ctx, "active_auctions", redis.Z{
+		Score:  float64(endTime.Unix()),
+		Member: auctionID,
+	})
 
 	_, err = pipe.Exec(ctx)
 	if err != nil {
