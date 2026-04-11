@@ -33,6 +33,8 @@ const ProfilePage: React.FC = () => {
     deletePhraseInput,
     setDeletePhraseInput,
     deletePhraseError,
+    deleteAccountError,
+    deletingAccount,
     deleteAccountModalKey,
     handleDeleteAccountOpen,
     closeDeleteAccountFlow,
@@ -102,6 +104,8 @@ const ProfilePage: React.FC = () => {
           <DeleteAccountFinalModal
             onNo={closeDeleteAccountFlow}
             onYes={confirmDeleteAccount}
+            error={deleteAccountError}
+            deleting={deletingAccount}
           />,
           document.body
         )}

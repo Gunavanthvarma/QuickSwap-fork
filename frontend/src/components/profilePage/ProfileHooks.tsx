@@ -71,6 +71,8 @@ export const useProfile = () => {
   const [deleteAccountFlow, setDeleteAccountFlow] = useState<"closed" | "phrase" | "final">("closed");
   const [deletePhraseInput, setDeletePhraseInput] = useState("");
   const [deletePhraseError, setDeletePhraseError] = useState<string | null>(null);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteAccountModalKey, setDeleteAccountModalKey] = useState(0);
 
   const navigate = useNavigate();
@@ -128,6 +130,8 @@ export const useProfile = () => {
 
   const handleDeleteAccountOpen = () => {
     setDeletePhraseError(null);
+    setDeleteAccountError(null);
+    setDeletingAccount(false);
     setDeletePhraseInput("");
     setDeleteAccountModalKey((k) => k + 1);
     setDeleteAccountFlow("phrase");
@@ -137,6 +141,8 @@ export const useProfile = () => {
     setDeleteAccountFlow("closed");
     setDeletePhraseInput("");
     setDeletePhraseError(null);
+    setDeleteAccountError(null);
+    setDeletingAccount(false);
   };
 
   const tryAdvanceToFinalDeleteStep = () => {
@@ -148,9 +154,53 @@ export const useProfile = () => {
     setDeleteAccountFlow("final");
   };
 
-  const confirmDeleteAccount = () => {
-    closeDeleteAccountFlow();
-    clearAuthAndRedirectToSignIn(navigate);
+  const confirmDeleteAccount = async () => {
+    setDeleteAccountError(null);
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const response = await fetch(getApiUrl("/api/profile/account"), {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json().catch(() => ({}));
+      const apiError =
+        typeof data === "object" &&
+        data !== null &&
+        "error" in data &&
+        typeof (data as { error?: unknown }).error === "string"
+          ? (data as { error: string }).error
+          : "";
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          closeDeleteAccountFlow();
+          clearAuthAndRedirectToSignIn(navigate);
+          return;
+        }
+        setDeleteAccountError(apiError || "Could not delete account. Please try again.");
+        return;
+      }
+
+      closeDeleteAccountFlow();
+      clearAuthAndRedirectToSignIn(navigate);
+    } catch (err) {
+      console.error("[API] /api/profile/account error:", err);
+      setDeleteAccountError(
+        err instanceof Error ? err.message : "Could not delete account. Please try again."
+      );
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const handlePasswordSubmit = async (_e: React.FormEvent): Promise<boolean> => {
@@ -320,6 +370,8 @@ export const useProfile = () => {
     deletePhraseInput,
     setDeletePhraseInput,
     deletePhraseError,
+    deleteAccountError,
+    deletingAccount,
     deleteAccountModalKey,
     handleDeleteAccountOpen,
     closeDeleteAccountFlow,

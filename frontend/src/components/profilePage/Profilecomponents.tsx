@@ -328,20 +328,39 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
 
 interface DeleteAccountFinalModalProps {
   onNo: () => void;
-  onYes: () => void;
+  onYes: () => void | Promise<void>;
+  error?: string | null;
+  deleting?: boolean;
 }
 
-export const DeleteAccountFinalModal: React.FC<DeleteAccountFinalModalProps> = ({ onNo, onYes }) => (
+export const DeleteAccountFinalModal: React.FC<DeleteAccountFinalModalProps> = ({
+  onNo,
+  onYes,
+  error,
+  deleting = false,
+}) => (
   <div className="edit-profile-modal-overlay">
     <div className="edit-profile-modal-content">
       <h2>Delete account</h2>
       <p className="delete-account-prompt">Are you sure you want to delete account?</p>
+      {error ? (
+        <p className="edit-profile-error" role="alert">
+          {error}
+        </p>
+      ) : null}
       <div className="edit-profile-actions">
-        <button type="button" className="btn ghost" onClick={onNo}>
+        <button type="button" className="btn ghost" onClick={onNo} disabled={deleting}>
           No
         </button>
-        <button type="button" className="btn danger" onClick={onYes}>
-          Yes
+        <button
+          type="button"
+          className="btn danger"
+          disabled={deleting}
+          onClick={() => {
+            void onYes();
+          }}
+        >
+          {deleting ? "Deleting…" : "Yes"}
         </button>
       </div>
     </div>
