@@ -59,7 +59,7 @@ func TestCreateListingHandler(t *testing.T) {
 	os.Setenv("SUPABASE_URL", ts.URL)
 
 	c := auth.NewClient(ts.URL, "anon")
-	handler := createListingHandler(c)
+	handler := createListingHandler(c, nil)
 
 	req1 := httptest.NewRequest("POST", "/api/createlisting", bytes.NewBuffer([]byte(`{}`)))
 	rr1 := httptest.NewRecorder()
