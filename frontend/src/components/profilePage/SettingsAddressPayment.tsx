@@ -1,11 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ApiAddress, UiSavedPayment, UiPaymentBrand } from "./Profile.types";
+import type { ApiAddress, ApiPaymentMethod, UiPaymentBrand } from "./Profile.types";
 import { clearLocalAuth, getApiUrl } from "../../utils/authApi";
-
-function newId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 
 function normalizeAddress(row: Record<string, unknown>): ApiAddress {
   return {
@@ -43,7 +39,58 @@ const emptyAddressForm = (defaultChecked: boolean): AddressFormState => ({
   is_default: defaultChecked,
 });
 
-async function addressRequest<T>(path: string, init?: RequestInit): Promise<T> {
+function cardTypeToUiBrand(cardType: string): UiPaymentBrand {
+  const t = cardType.toLowerCase().trim();
+  if (t.includes("visa")) return "visa";
+  if (t.includes("master") || t === "mc") return "mastercard";
+  if (t.includes("amex") || t.includes("american")) return "amex";
+  return "other";
+}
+
+function brandToCardType(brand: UiPaymentBrand): string {
+  const map: Record<UiPaymentBrand, string> = {
+    visa: "visa",
+    mastercard: "mastercard",
+    amex: "amex",
+    other: "other",
+  };
+  return map[brand];
+}
+
+function normalizePayment(row: Record<string, unknown>): ApiPaymentMethod {
+  const em = row.expiry_month;
+  const ey = row.expiry_year;
+  const monthNum =
+    typeof em === "number" ? Math.trunc(em) : parseInt(String(em ?? 0), 10) || 0;
+  const yearNum =
+    typeof ey === "number" ? Math.trunc(ey) : parseInt(String(ey ?? 0), 10) || 0;
+  return {
+    id: String(row.id ?? ""),
+    card_type: String(row.card_type ?? ""),
+    last4: String(row.last4 ?? ""),
+    expiry_month: monthNum,
+    expiry_year: yearNum,
+    is_default: Boolean(row.is_default),
+  };
+}
+
+type PaymentFormState = {
+  brand: UiPaymentBrand;
+  last4: string;
+  expMonth: string;
+  expYear: string;
+  is_default: boolean;
+};
+
+const emptyPaymentForm = (defaultChecked: boolean): PaymentFormState => ({
+  brand: "visa",
+  last4: "",
+  expMonth: "",
+  expYear: "",
+  is_default: defaultChecked,
+});
+
+async function authorizedApiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("accessToken");
   if (!token) {
     clearLocalAuth();
@@ -74,13 +121,6 @@ async function addressRequest<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return data as T;
 }
-
-const emptyPaymentForm = (): Omit<UiSavedPayment, "id" | "isDefault"> => ({
-  brand: "visa",
-  last4: "",
-  expMonth: "",
-  expYear: "",
-});
 
 // ─── Card brand icon (visual only) ───────────────────────────────────────────
 
@@ -130,7 +170,7 @@ export const AddressDetailsSection: React.FC = () => {
     setListError(null);
     if (!opts?.quiet) setLoading(true);
     try {
-      const raw = await addressRequest<Record<string, unknown>[] | unknown>("/api/address", {
+      const raw = await authorizedApiRequest<Record<string, unknown>[] | unknown>("/api/address", {
         method: "GET",
       });
       const rows = Array.isArray(raw) ? raw : [];
@@ -199,12 +239,12 @@ export const AddressDetailsSection: React.FC = () => {
     setSaving(true);
     try {
       if (editingId) {
-        await addressRequest(`/api/address/${encodeURIComponent(editingId)}`, {
+        await authorizedApiRequest(`/api/address/${encodeURIComponent(editingId)}`, {
           method: "PUT",
           body: JSON.stringify(body),
         });
       } else {
-        await addressRequest<Record<string, unknown>>("/api/address", {
+        await authorizedApiRequest<Record<string, unknown>>("/api/address", {
           method: "POST",
           body: JSON.stringify(body),
         });
@@ -222,7 +262,7 @@ export const AddressDetailsSection: React.FC = () => {
     if (!window.confirm("Remove this address?")) return;
     setListError(null);
     try {
-      await addressRequest(`/api/address/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await authorizedApiRequest(`/api/address/${encodeURIComponent(id)}`, { method: "DELETE" });
       await loadAddresses({ quiet: true });
     } catch (e) {
       setListError(e instanceof Error ? e.message : "Could not delete address");
@@ -234,7 +274,7 @@ export const AddressDetailsSection: React.FC = () => {
     setMarkingDefaultId(a.id);
     setListError(null);
     try {
-      await addressRequest(`/api/address/${encodeURIComponent(a.id)}`, {
+      await authorizedApiRequest(`/api/address/${encodeURIComponent(a.id)}`, {
         method: "PUT",
         body: JSON.stringify({
           full_name: a.full_name,
@@ -447,103 +487,162 @@ export const AddressDetailsSection: React.FC = () => {
   );
 };
 
-// ─── Payment section ─────────────────────────────────────────────────────────
+// ─── Payment section (GET/POST /api/add-payment, DELETE /api/add-payment/:id) ─
 
 export const PaymentDetailsSection: React.FC = () => {
-  const [payments, setPayments] = useState<UiSavedPayment[]>([]);
+  const [methods, setMethods] = useState<ApiPaymentMethod[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState(() => emptyPaymentForm());
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<PaymentFormState>(() => emptyPaymentForm(true));
+
+  const loadPaymentMethods = useCallback(async (opts?: { quiet?: boolean }) => {
+    setListError(null);
+    if (!opts?.quiet) setLoading(true);
+    try {
+      const raw = await authorizedApiRequest<Record<string, unknown>[] | unknown>("/api/add-payment", {
+        method: "GET",
+      });
+      const rows = Array.isArray(raw) ? raw : [];
+      setMethods(rows.map((row) => normalizePayment(row as Record<string, unknown>)));
+    } catch (e) {
+      setMethods([]);
+      setListError(e instanceof Error ? e.message : "Failed to load payment methods");
+    } finally {
+      if (!opts?.quiet) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPaymentMethods();
+  }, [loadPaymentMethods]);
 
   const openAdd = () => {
-    setForm(emptyPaymentForm());
+    setModalError(null);
+    setForm(emptyPaymentForm(methods.length === 0));
     setModalOpen(true);
   };
 
-  const closeModal = () => setModalOpen(false);
+  const closeModal = () => {
+    setModalOpen(false);
+    setModalError(null);
+  };
 
-  const savePayment = (e: React.FormEvent) => {
+  const parseExpiryYear = (raw: string): number => {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length === 2) return 2000 + parseInt(digits, 10);
+    if (digits.length >= 4) return parseInt(digits.slice(0, 4), 10);
+    return 0;
+  };
+
+  const savePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const digits = form.last4.replace(/\D/g, "").slice(0, 4);
-    if (digits.length !== 4) return;
-    const m = form.expMonth.replace(/\D/g, "").slice(0, 2);
-    const y = form.expYear.replace(/\D/g, "").slice(0, 4);
-    if (!m || !y) return;
+    setModalError(null);
+    const last4 = form.last4.replace(/\D/g, "").slice(0, 4);
+    const month = parseInt(form.expMonth.replace(/\D/g, ""), 10);
+    const year = parseExpiryYear(form.expYear);
+    if (last4.length !== 4) {
+      setModalError("Last four digits must be exactly 4 numbers.");
+      return;
+    }
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      setModalError("Enter a valid expiry month (1–12).");
+      return;
+    }
+    if (!year || year < 2000 || year > 2100) {
+      setModalError("Enter a valid expiry year (e.g. 2026).");
+      return;
+    }
 
-    const id = newId();
-    setPayments((prev) => {
-      const isFirst = prev.length === 0;
-      const next: UiSavedPayment = {
-        id,
-        brand: form.brand,
-        last4: digits,
-        expMonth: m.padStart(2, "0"),
-        expYear: y.length === 2 ? `20${y}` : y,
-        isDefault: isFirst,
-      };
-      return [...prev, next];
-    });
-    closeModal();
+    const body = {
+      card_type: brandToCardType(form.brand),
+      last4,
+      expiry_month: month,
+      expiry_year: year,
+      is_default: form.is_default,
+    };
+
+    setSaving(true);
+    try {
+      await authorizedApiRequest("/api/add-payment", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      await loadPaymentMethods({ quiet: true });
+      closeModal();
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : "Could not save payment method");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const removePayment = (id: string) => {
+  const removePayment = async (id: string) => {
     if (!window.confirm("Remove this payment method?")) return;
-    setPayments((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      const removed = prev.find((p) => p.id === id);
-      if (removed?.isDefault && next.length > 0) {
-        return next.map((p, i) => (i === 0 ? { ...p, isDefault: true } : { ...p, isDefault: false }));
-      }
-      return next;
-    });
-  };
-
-  const setDefaultPayment = (id: string) => {
-    setPayments((prev) => prev.map((p) => ({ ...p, isDefault: p.id === id })));
+    setListError(null);
+    try {
+      await authorizedApiRequest(`/api/add-payment/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await loadPaymentMethods({ quiet: true });
+    } catch (e) {
+      setListError(e instanceof Error ? e.message : "Could not remove payment method");
+    }
   };
 
   return (
     <div className="settings-section">
       <div className="settings-section-header">
         <h2>Payment details</h2>
-        {payments.length > 0 && (
+        {!loading && methods.length > 0 && (
           <button type="button" className="btn primary" onClick={openAdd}>
             Add payment method
           </button>
         )}
       </div>
 
-      {payments.length === 0 ? (
+      {loading && <p className="settings-inline-status">Loading payment methods…</p>}
+
+      {listError && !loading && (
+        <div className="settings-error-row" role="alert">
+          <p className="edit-profile-error settings-error-text">{listError}</p>
+          <button type="button" className="btn ghost" onClick={() => void loadPaymentMethods()}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!loading && methods.length === 0 && (
         <div className="settings-empty-state">
           <p>No payment method saved</p>
           <button type="button" className="btn primary" onClick={openAdd}>
             Add payment method
           </button>
         </div>
-      ) : (
+      )}
+
+      {!loading && methods.length > 0 && (
         <div className="settings-cards-grid settings-cards-grid--payment">
-          {payments.map((p) => (
+          {methods.map((p) => (
             <article key={p.id} className="settings-payment-card">
               <div className="settings-payment-card-top">
-                <CardBrandIcon brand={p.brand} />
-                {p.isDefault && <span className="settings-default-pill">Default</span>}
+                <CardBrandIcon brand={cardTypeToUiBrand(p.card_type)} />
+                {p.is_default && <span className="settings-default-pill">Default</span>}
               </div>
+              <p className="settings-payment-meta">{p.card_type}</p>
               <p className="settings-payment-number">
                 <span aria-hidden>••••</span> {p.last4}
               </p>
               <p className="settings-payment-exp">
-                Expires {p.expMonth}/{p.expYear.slice(-2)}
+                Expires {String(p.expiry_month).padStart(2, "0")}/
+                {String(p.expiry_year % 100).padStart(2, "0")}
               </p>
               <div className="settings-detail-card-actions">
-                {!p.isDefault && (
-                  <button type="button" className="btn-link" onClick={() => setDefaultPayment(p.id)}>
-                    Mark as default
-                  </button>
-                )}
                 <button
                   type="button"
                   className="btn ghost"
                   style={{ color: "var(--error)" }}
-                  onClick={() => removePayment(p.id)}
+                  onClick={() => void removePayment(p.id)}
                 >
                   Remove
                 </button>
@@ -552,6 +651,11 @@ export const PaymentDetailsSection: React.FC = () => {
           ))}
         </div>
       )}
+
+      <p className="settings-payment-footnote">
+        Only non-sensitive metadata is stored (card type, last four digits, expiry). Choose “default” when adding a
+        card.
+      </p>
 
       {modalOpen &&
         createPortal(
@@ -564,14 +668,22 @@ export const PaymentDetailsSection: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <h2 id="payment-modal-title">Add payment method</h2>
-              <p className="settings-modal-hint">For display only — not saved to a server in this build.</p>
-              <form className="edit-profile-form" onSubmit={savePayment}>
+              <p className="settings-modal-hint">
+                Enter the last four digits and expiry. Full card numbers are not stored on this server.
+              </p>
+              <form className="edit-profile-form" onSubmit={(e) => void savePayment(e)}>
+                {modalError ? (
+                  <p className="edit-profile-error" role="alert">
+                    {modalError}
+                  </p>
+                ) : null}
                 <div className="settings-group">
                   <label htmlFor="pay-brand">Card type</label>
                   <select
                     id="pay-brand"
                     className="settings-select"
                     value={form.brand}
+                    disabled={saving}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, brand: e.target.value as UiPaymentBrand }))
                     }
@@ -590,7 +702,10 @@ export const PaymentDetailsSection: React.FC = () => {
                     maxLength={4}
                     placeholder="4242"
                     value={form.last4}
-                    onChange={(e) => setForm((f) => ({ ...f, last4: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                    disabled={saving}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, last4: e.target.value.replace(/\D/g, "").slice(0, 4) }))
+                    }
                     required
                   />
                 </div>
@@ -603,7 +718,10 @@ export const PaymentDetailsSection: React.FC = () => {
                       placeholder="MM"
                       maxLength={2}
                       value={form.expMonth}
-                      onChange={(e) => setForm((f) => ({ ...f, expMonth: e.target.value.replace(/\D/g, "").slice(0, 2) }))}
+                      disabled={saving}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, expMonth: e.target.value.replace(/\D/g, "").slice(0, 2) }))
+                      }
                       required
                     />
                   </div>
@@ -612,20 +730,32 @@ export const PaymentDetailsSection: React.FC = () => {
                     <input
                       id="pay-yy"
                       inputMode="numeric"
-                      placeholder="YYYY"
+                      placeholder="YYYY or YY"
                       maxLength={4}
                       value={form.expYear}
-                      onChange={(e) => setForm((f) => ({ ...f, expYear: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                      disabled={saving}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, expYear: e.target.value.replace(/\D/g, "").slice(0, 4) }))
+                      }
                       required
                     />
                   </div>
                 </div>
+                <label className="settings-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={form.is_default}
+                    disabled={saving}
+                    onChange={(e) => setForm((f) => ({ ...f, is_default: e.target.checked }))}
+                  />
+                  <span>Use as default payment method</span>
+                </label>
                 <div className="edit-profile-actions">
-                  <button type="button" className="btn ghost" onClick={closeModal}>
+                  <button type="button" className="btn ghost" onClick={closeModal} disabled={saving}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn primary">
-                    Add
+                  <button type="submit" className="btn primary" disabled={saving}>
+                    {saving ? "Saving…" : "Add"}
                   </button>
                 </div>
               </form>

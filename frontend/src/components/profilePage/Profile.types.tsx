@@ -67,8 +67,18 @@ export interface UpdatePasswordFormState {
 
 export type ActiveTab = "listings" | "bids" | "settings";
 
-/** Local-only UI models for payment settings (not persisted to API yet). */
+/** Card brand for icons (mapped from `card_type` strings). */
 export type UiPaymentBrand = "visa" | "mastercard" | "amex" | "other";
+
+/** Payment method from GET /api/add-payment (matches backend / Supabase). */
+export interface ApiPaymentMethod {
+  id: string;
+  card_type: string;
+  last4: string;
+  expiry_month: number;
+  expiry_year: number;
+  is_default: boolean;
+}
 
 /** Address row from GET /api/address (matches backend / Supabase). */
 export interface ApiAddress {
@@ -81,13 +91,4 @@ export interface ApiAddress {
   zip: string;
   country: string;
   is_default: boolean;
-}
-
-export interface UiSavedPayment {
-  id: string;
-  brand: UiPaymentBrand;
-  last4: string;
-  expMonth: string;
-  expYear: string;
-  isDefault: boolean;
 }

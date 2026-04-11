@@ -632,6 +632,21 @@ body {
   color: var(--muted);
 }
 
+.settings-payment-meta {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  color: var(--muted);
+}
+
+.settings-payment-footnote {
+  margin: 16px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .settings-modal-hint {
   margin: -8px 0 16px;
   font-size: 0.8rem;
