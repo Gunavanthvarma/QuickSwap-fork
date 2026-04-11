@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { AddressDetailsSection, PaymentDetailsSection } from "./SettingsAddressPayment";
 import { StripEmptyStateView } from "../landingPage/top_listings_strip";
 import type {
   ProfileResponse,
@@ -521,6 +522,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         <button type="button" className="btn ghost" onClick={onEditProfile}>Edit profile</button>
       </div>
     </div>
+    <AddressDetailsSection />
+    <PaymentDetailsSection />
     <div className="settings-section">
       <h2>Privacy & Security</h2>
       <div className="settings-group inline">
