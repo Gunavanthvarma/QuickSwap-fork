@@ -1,5 +1,7 @@
 // LandingPage.tsx
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { clearLocalAuth, postAuthLogout } from "../../utils/authApi";
 import "./landing_page.css";
 // import Signup from './components/authenticate/Signup';
 
@@ -40,17 +42,20 @@ const mockListings = [
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  
-  const isLoggedIn = !!localStorage.getItem("user");
-  const handleLogout = () => {
-    // Clear auth-related data
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("accessTokenExpiry");
-    localStorage.removeItem("user");
+  const [logoutBusy, setLogoutBusy] = useState(false);
 
-    // Navigate back to landing page
-    navigate("/", { replace: true });
+  const isLoggedIn = !!localStorage.getItem("user");
+  const handleLogout = async () => {
+    if (logoutBusy) return;
+    const token = localStorage.getItem("accessToken");
+    setLogoutBusy(true);
+    try {
+      if (token) await postAuthLogout(token);
+    } finally {
+      clearLocalAuth();
+      setLogoutBusy(false);
+      navigate("/", { replace: true });
+    }
   };
 
   const handleStartSelling = () => {
@@ -85,8 +90,14 @@ const LandingPage = () => {
               <button className="btn ghost" onClick={() => navigate("/profile")}>
                 Profile
               </button>
-              <button className="btn ghost" onClick={handleLogout}>
-                Logout
+              <button
+                className="btn ghost"
+                onClick={() => {
+                  void handleLogout();
+                }}
+                disabled={logoutBusy}
+              >
+                {logoutBusy ? "Logging out…" : "Logout"}
               </button>
             </>
           ) : (

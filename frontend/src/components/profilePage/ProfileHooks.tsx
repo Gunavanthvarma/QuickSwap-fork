@@ -4,6 +4,11 @@ import {
   formatTimeRemainingFromBackendString,
   formatTimeRemainingFromEnd,
 } from "../../utils/formatTimeRemaining";
+import {
+  clearLocalAuth,
+  fetchAuthMe,
+  getApiUrl,
+} from "../../utils/authApi";
 import type {
   ProfileResponse,
   EditFormState,
@@ -14,6 +19,8 @@ import type {
   MyBidsApiItem,
 } from "./Profile.types";
 
+export { getApiUrl };
+
 // ─── Utils ────────────────────────────────────────────────────────────────────
 
 export const formatCurrency = (amount: number): string =>
@@ -23,21 +30,8 @@ export const formatCurrency = (amount: number): string =>
     maximumFractionDigits: 0,
   }).format(amount || 0);
 
-export const getApiUrl = (path: string): string => {
-  const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-  const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-  if (!apiBase) return path;
-  
-  const normalizedBase = apiBase.replace(/\/$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${normalizedBase}${normalizedPath}`;
-};
-
 function clearAuthAndRedirectToSignIn(navigate: NavigateFunction) {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("accessTokenExpiry");
-  localStorage.removeItem("user");
+  clearLocalAuth();
   navigate("/signin", { replace: true });
 }
 
@@ -78,30 +72,54 @@ export const useProfile = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) { navigate("/signin"); return; }
-
-      const expiryRaw = localStorage.getItem("accessTokenExpiry");
-      if (expiryRaw) {
-        const expiryMs = Number(expiryRaw);
-        if (Number.isFinite(expiryMs) && Date.now() >= expiryMs) {
-          clearAuthAndRedirectToSignIn(navigate);
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+          navigate("/signin");
           return;
         }
+
+        const expiryRaw = localStorage.getItem("accessTokenExpiry");
+        if (expiryRaw) {
+          const expiryMs = Number(expiryRaw);
+          if (Number.isFinite(expiryMs) && Date.now() >= expiryMs) {
+            clearAuthAndRedirectToSignIn(navigate);
+            return;
+          }
+        }
+
+        const userStr = localStorage.getItem("user");
+        if (!userStr) {
+          navigate("/signin");
+          return;
+        }
+
+        const parsed: ProfileResponse = JSON.parse(userStr);
+        const me = await fetchAuthMe(token);
+        if (cancelled) return;
+
+        const merged: ProfileResponse = {
+          ...parsed,
+          id: me.id,
+          email: me.email,
+        };
+        setUser(merged);
+        localStorage.setItem("user", JSON.stringify(merged));
+      } catch (err) {
+        console.error("Failed to load profile session:", err);
+        if (!cancelled) {
+          setError("Failed to load profile");
+          clearAuthAndRedirectToSignIn(navigate);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const userStr = localStorage.getItem("user");
-      if (!userStr) { navigate("/signin"); return; }
-
-      setUser(JSON.parse(userStr));
-    } catch (err) {
-      console.error("Failed to parse user from local storage:", err);
-      setError("Failed to load profile");
-      navigate("/signin");
-    } finally {
-      setLoading(false);
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
   const handleEditOpen = () => {

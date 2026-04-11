@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../landingPage/loggedin_landing_page.css"; 
+import "../landingPage/loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
 import type { StripItem } from "./top_listings_strip";
+import {
+  clearLocalAuth,
+  fetchAuthMe,
+  getApiUrl,
+  postAuthLogout,
+} from "../../utils/authApi";
 
 interface TopListingApiItem {
   id: string;
@@ -28,6 +34,7 @@ const LoggedInLandingPage: React.FC = () => {
   const [latestItems, setLatestItems] = useState<StripItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [logoutBusy, setLogoutBusy] = useState(false);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("en-US", {
@@ -35,12 +42,6 @@ const LoggedInLandingPage: React.FC = () => {
       currency: "USD",
       maximumFractionDigits: 0,
     }).format(amount || 0);
-
-  const getApiUrl = (path: string) => {
-    const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-    const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-    return apiBase ? `${apiBase.replace(/\/$/, "")}${path}` : path;
-  };
 
   const mapToStripItems = (items: TopListingApiItem[] | null, tag: string): StripItem[] => {
     if (!Array.isArray(items)) return [];
@@ -95,13 +96,43 @@ const LoggedInLandingPage: React.FC = () => {
     fetchTopListings();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("accessTokenExpiry");
-    localStorage.removeItem("user");
-    // navigate("/", { replace: true }); // back to public landing
-    window.location.href = "/";
+  /** Validate session with GET /api/auth/me (token may be invalid even if user blob exists). */
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    const user = localStorage.getItem("user");
+    if (!user) return;
+    if (!token) {
+      clearLocalAuth();
+      window.location.href = "/signin";
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        await fetchAuthMe(token);
+      } catch {
+        if (!cancelled) {
+          clearLocalAuth();
+          window.location.href = "/signin";
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    if (logoutBusy) return;
+    const token = localStorage.getItem("accessToken");
+    setLogoutBusy(true);
+    try {
+      if (token) await postAuthLogout(token);
+    } finally {
+      clearLocalAuth();
+      setLogoutBusy(false);
+      window.location.href = "/";
+    }
   };
 
   const handleStartSelling = () => {
@@ -135,8 +166,14 @@ const LoggedInLandingPage: React.FC = () => {
               >
                 Profile
               </button>
-              <button className="btn ghost" onClick={handleLogout}>
-                Logout
+              <button
+                className="btn ghost"
+                onClick={() => {
+                  void handleLogout();
+                }}
+                disabled={logoutBusy}
+              >
+                {logoutBusy ? "Logging out…" : "Logout"}
               </button>
             </>
           )}
