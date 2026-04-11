@@ -27,7 +27,7 @@ const ProfilePage: React.FC = () => {
     profileSaveError, savingProfile, profileEditModalKey,
     handleEditOpen, handleEditSubmit, closeEdit,
     isUpdatingPassword, passwordForm, setPasswordForm,
-    passwordUpdateError, passwordModalKey,
+    passwordUpdateError, savingPassword, passwordModalKey,
     handlePasswordOpen, handlePasswordSubmit, closePassword,
     deleteAccountFlow,
     deletePhraseInput,
@@ -81,6 +81,7 @@ const ProfilePage: React.FC = () => {
             onSubmit={handlePasswordSubmit}
             onClose={closePassword}
             updateError={passwordUpdateError}
+            saving={savingPassword}
           />,
           document.body
         )}

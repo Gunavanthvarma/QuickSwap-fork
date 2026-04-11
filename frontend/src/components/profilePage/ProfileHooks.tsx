@@ -65,6 +65,7 @@ export const useProfile = () => {
     confirm_password: "",
   });
   const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(null);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [passwordModalKey, setPasswordModalKey] = useState(0);
 
   const [deleteAccountFlow, setDeleteAccountFlow] = useState<"closed" | "phrase" | "final">("closed");
@@ -152,7 +153,7 @@ export const useProfile = () => {
     clearAuthAndRedirectToSignIn(navigate);
   };
 
-  const handlePasswordSubmit = async (): Promise<boolean> => {
+  const handlePasswordSubmit = async (_e: React.FormEvent): Promise<boolean> => {
     setPasswordUpdateError(null);
     const oldPw = passwordForm.old_password.trim();
     const newPw = passwordForm.new_password.trim();
@@ -166,11 +167,66 @@ export const useProfile = () => {
       setPasswordUpdateError("New passwords do not match.");
       return false;
     }
-    if (newPw.length < 8) {
-      setPasswordUpdateError("New password must be at least 8 characters.");
+    if (newPw.length < 6) {
+      setPasswordUpdateError("New password must be at least 6 characters.");
       return false;
     }
-    return true;
+
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/signin");
+      return false;
+    }
+
+    setSavingPassword(true);
+    try {
+      const response = await fetch(getApiUrl("/api/profile/password"), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          old_password: oldPw,
+          new_password: newPw,
+          re_enter_new_password: confirmPw,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      const apiError =
+        typeof data === "object" &&
+        data !== null &&
+        "error" in data &&
+        typeof (data as { error?: unknown }).error === "string"
+          ? (data as { error: string }).error
+          : "";
+
+      if (!response.ok) {
+        // Same endpoint returns 401 for bad session and for wrong old password; only sign out on auth failure.
+        if (response.status === 401) {
+          const wrongOldPassword = apiError.toLowerCase().includes("old password");
+          if (wrongOldPassword) {
+            setPasswordUpdateError(apiError || "Incorrect old password");
+            return false;
+          }
+          clearAuthAndRedirectToSignIn(navigate);
+          return false;
+        }
+        setPasswordUpdateError(apiError || "Failed to update password");
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error("[API] /api/profile/password error:", err);
+      setPasswordUpdateError(
+        err instanceof Error ? err.message : "Failed to update password"
+      );
+      return false;
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   const handleEditSubmit = async (_e: React.FormEvent): Promise<boolean> => {
@@ -254,8 +310,10 @@ export const useProfile = () => {
     passwordModalKey,
     handlePasswordOpen,
     handlePasswordSubmit,
+    savingPassword,
     closePassword: () => {
       setPasswordUpdateError(null);
+      setSavingPassword(false);
       setIsUpdatingPassword(false);
     },
     deleteAccountFlow,

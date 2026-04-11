@@ -110,7 +110,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         <div className="edit-profile-modal-content">
           <h2>Edit Profile</h2>
           <p className="edit-profile-success" role="status">
-            changes implemented successfully
+            Profile updated successfully
           </p>
           <div className="edit-profile-actions edit-profile-actions--single">
             <button type="button" className="btn primary" onClick={onClose}>
@@ -171,6 +171,7 @@ interface UpdatePasswordModalProps {
   onSubmit: (e: React.FormEvent) => Promise<boolean>;
   onClose: () => void;
   updateError?: string | null;
+  saving?: boolean;
 }
 
 export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
@@ -179,11 +180,13 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
   onSubmit,
   onClose,
   updateError,
+  saving = false,
 }) => {
   const [showSuccess, setShowSuccess] = React.useState(false);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     const ok = await onSubmit(e);
     if (ok) setShowSuccess(true);
   };
@@ -224,6 +227,7 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
               autoComplete="current-password"
               value={passwordForm.old_password}
               required
+              disabled={saving}
               onChange={(e) =>
                 setPasswordForm((prev) => ({ ...prev, old_password: e.target.value }))
               }
@@ -237,6 +241,7 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
               autoComplete="new-password"
               value={passwordForm.new_password}
               required
+              disabled={saving}
               onChange={(e) =>
                 setPasswordForm((prev) => ({ ...prev, new_password: e.target.value }))
               }
@@ -250,17 +255,18 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
               autoComplete="new-password"
               value={passwordForm.confirm_password}
               required
+              disabled={saving}
               onChange={(e) =>
                 setPasswordForm((prev) => ({ ...prev, confirm_password: e.target.value }))
               }
             />
           </div>
           <div className="edit-profile-actions">
-            <button type="button" className="btn ghost" onClick={onClose}>
+            <button type="button" className="btn ghost" onClick={onClose} disabled={saving}>
               Close
             </button>
-            <button type="submit" className="btn primary">
-              Update
+            <button type="submit" className="btn primary" disabled={saving}>
+              {saving ? "Updating…" : "Update"}
             </button>
           </div>
         </form>
