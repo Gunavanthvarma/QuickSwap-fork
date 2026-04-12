@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/quickswap/quickswap/internal/auth"
@@ -104,6 +106,17 @@ func bidHandler(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handle
 			respondError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		// 3. Sync bid to PostgreSQL asynchronously
+		bidTime := time.Now()
+		go func(aid, uid string, amt float64, t time.Time) {
+			bgCtx := context.Background()
+			query := `INSERT INTO bids (listing_id, user_id, bid_amount, created_at) VALUES ($1, $2, $3, $4)`
+			_, err := pg.Exec(bgCtx, query, aid, uid, amt, t)
+			if err != nil {
+				log.Printf("Failed to sync bid to db: aid=%s uid=%s err=%v", aid, uid, err)
+			}
+		}(auctionID, userID, req.Amount, bidTime)
 
 		respondJSON(w, map[string]interface{}{
 			"message": "Bid placed successfully",
