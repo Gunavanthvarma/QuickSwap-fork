@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { deleteListing } from "../../lib/listingApi";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import { AddressDetailsSection, PaymentDetailsSection } from "./SettingsAddressPayment";
 import { StripEmptyStateView } from "../landingPage/top_listings_strip";
 import type {
@@ -29,12 +31,7 @@ export const ProfileNavbar: React.FC = () => {
         <button type="button" className="navbar-link-button active" onClick={() => navigate("/profile")}>Profile</button>
       </nav>
       <div className="navbar-actions">
-        <button type="button" className="btn ghost-icon" aria-label="Notifications (coming soon)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-        </button>
+        <NotificationsBell />
       </div>
     </header>
   );
@@ -449,10 +446,31 @@ interface ListingsTabProps {
   listings: ListingCardItem[];
   loading: boolean;
   error: string | null;
+  onRefreshListings?: () => void;
 }
 
-export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, error }) => {
+export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, error, onRefreshListings }) => {
   const navigate = useNavigate();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (listingId: string, name: string) => {
+    if (!window.confirm(`Delete “${name}”? This cannot be undone.`)) return;
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
+    setDeletingId(listingId);
+    try {
+      await deleteListing(listingId, token);
+      onRefreshListings?.();
+    } catch (err: unknown) {
+      window.alert(err instanceof Error ? err.message : "Failed to delete listing");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) return <div>Loading your listings...</div>;
   if (error) return <div>{error}</div>;
   if (listings.length === 0) {
@@ -473,52 +491,75 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
   return (
     <div className="listings-grid">
       {listings.map((listing) => (
-        <div
-          key={listing.id}
-          className="listing-card"
-          style={{ cursor: "pointer" }}
-          role="button"
-          tabIndex={0}
-          aria-label={`Open auction: ${listing.name}`}
-          onClick={() => navigate(`/auction/${listing.id}`)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              navigate(`/auction/${listing.id}`);
-            }
-          }}
-        >
-          <div className="listing-image-wrap">
-            <img
-              src={listing.image}
-              alt=""
-              width={400}
-              height={225}
-              loading="lazy"
-              decoding="async"
-            />
-            <span className={`listing-status ${listing.status}`}>
-              {listing.status === "active" ? "Active" : "Ended"}
-            </span>
-          </div>
-          <div className="listing-body">
-            <h3>{listing.name}</h3>
-            <div className="listing-details">
-              <div className="price-info">
-                <span className="label">Current bid</span>
-                <span className="value">{listing.currentBid}</span>
+        <article key={listing.id} className="listing-card">
+          <div
+            className="listing-card-main"
+            role="button"
+            tabIndex={0}
+            aria-label={`Open auction: ${listing.name}`}
+            onClick={() => navigate(`/auction/${listing.id}`)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                navigate(`/auction/${listing.id}`);
+              }
+            }}
+          >
+            <div className="listing-image-wrap">
+              <img
+                src={listing.image}
+                alt=""
+                width={400}
+                height={225}
+                loading="lazy"
+                decoding="async"
+              />
+              <span className={`listing-status ${listing.status}`}>
+                {listing.status === "active" ? "Active" : "Ended"}
+              </span>
+            </div>
+            <div className="listing-body">
+              <h3>{listing.name}</h3>
+              <div className="listing-details">
+                <div className="price-info">
+                  <span className="label">Current bid</span>
+                  <span className="value">{listing.currentBid}</span>
+                </div>
+                <div className="price-info">
+                  <span className="label">Time left</span>
+                  <span className="value">{listing.timeLeft}</span>
+                </div>
               </div>
-              <div className="price-info">
-                <span className="label">Time left</span>
-                <span className="value">{listing.timeLeft}</span>
+              <div className="listing-meta">
+                <span>{listing.bids} bids</span>
+                <span className="btn-link">View details</span>
               </div>
             </div>
-            <div className="listing-meta">
-              <span>{listing.bids} bids</span>
-              <span className="btn-link">View details</span>
-            </div>
           </div>
-        </div>
+          <div className="listing-card-actions">
+            <button
+              type="button"
+              className="listing-action-btn listing-action-btn--secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/edit-listing/${listing.id}`);
+              }}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="listing-action-btn listing-action-btn--danger"
+              disabled={deletingId === listing.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleDelete(listing.id, listing.name);
+              }}
+            >
+              {deletingId === listing.id ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        </article>
       ))}
     </div>
   );

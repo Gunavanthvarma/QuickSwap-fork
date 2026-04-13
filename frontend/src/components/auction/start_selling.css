@@ -332,10 +332,21 @@
   gap: 10px;
 }
 
+.sell-success-primary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .sell-success-link {
   justify-content: center;
   text-decoration: none;
   box-sizing: border-box;
+}
+
+.sell-success-profile-btn {
+  margin-left: auto;
 }
 
 .sell-btn-secondary {

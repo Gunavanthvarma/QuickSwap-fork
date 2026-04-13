@@ -359,6 +359,49 @@ body {
   box-shadow: var(--shadow-soft);
 }
 
+.listing-card-main {
+  cursor: pointer;
+}
+
+.listing-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+}
+
+.listing-action-btn {
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+
+.listing-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.listing-action-btn--secondary:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.listing-action-btn--danger {
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #b91c1c;
+}
+
+.listing-action-btn--danger:hover:not(:disabled) {
+  background: var(--error-soft);
+}
+
 .listing-image-wrap,
 .bid-image-wrap {
   position: relative;

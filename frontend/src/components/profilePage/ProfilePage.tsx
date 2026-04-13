@@ -137,7 +137,12 @@ const ProfilePage: React.FC = () => {
 
       <section className="profile-content">
         {activeTab === "listings" && (
-          <ListingsTab listings={userListings} loading={listingsLoading} error={listingsError}  />
+          <ListingsTab
+            listings={userListings}
+            loading={listingsLoading}
+            error={listingsError}
+            onRefreshListings={() => void fetchMyListings()}
+          />
         )}
         {activeTab === "bids" && (
           <BidsTab bids={userBids} loading={bidsLoading} error={bidsError}  />

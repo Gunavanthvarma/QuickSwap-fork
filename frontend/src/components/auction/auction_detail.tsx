@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { apiErrorMessage, authHeaders, getApiUrl, getSSEUrl, isFetchAborted, isRecord } from "../../lib/api";
+import { deleteListing } from "../../lib/listingApi";
 import { formatCurrency } from "../../lib/format";
 import {
   computeServerSkewMs,
@@ -84,6 +85,7 @@ const AuctionDetail: React.FC = () => {
   const [hasJoinedLocal, setHasJoinedLocal] = useState(false);
   const [bidSubmitting, setBidSubmitting] = useState(false);
   const [bidError, setBidError] = useState<string | null>(null);
+  const [deletingListing, setDeletingListing] = useState(false);
   const bidInputRef = useRef<HTMLInputElement | null>(null);
 
   /** Live bid row from SSE (`/api/ws/auctions/:id`). */
@@ -325,6 +327,25 @@ const AuctionDetail: React.FC = () => {
     bidInputRef.current?.focus();
   };
 
+  const handleDeleteListing = async () => {
+    if (!listingId) return;
+    if (!window.confirm("Delete this listing permanently? This cannot be undone.")) return;
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
+    setDeletingListing(true);
+    try {
+      await deleteListing(listingId, token);
+      navigate("/profile");
+    } catch (err: unknown) {
+      window.alert(err instanceof Error ? err.message : "Failed to delete listing");
+    } finally {
+      setDeletingListing(false);
+    }
+  };
+
   const handlePlaceBid = async () => {
     if (!canBid || bidSubmitting) return;
     const token = localStorage.getItem("accessToken");
@@ -505,6 +526,29 @@ const AuctionDetail: React.FC = () => {
               </div>
             )}
           </div>
+
+          {is_seller && (
+            <div className="auction-seller-actions">
+              <button
+                type="button"
+                className="auction-btn-ghost"
+                onClick={() => navigate(`/edit-listing/${listingId}`)}
+              >
+                Edit listing
+              </button>
+              <button
+                type="button"
+                className="auction-btn-delete-listing"
+                disabled={deletingListing}
+                onClick={() => void handleDeleteListing()}
+              >
+                {deletingListing ? "Deleting…" : "Delete listing"}
+              </button>
+              <p className="auction-delete-ui-message">
+                Update details or remove this listing. Bidders will see changes after you save.
+              </p>
+            </div>
+          )}
 
           {!is_seller && (
             <div className="auction-actions">
