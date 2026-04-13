@@ -30,13 +30,10 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	mux.HandleFunc("/api/listing", singleListingHandler(c))
 	mux.HandleFunc("/api/toplistings", topListingsHandler(c))
 
-
 	// Register bids Api
 	mux.HandleFunc("/api/mybids", myBidsHandler(c))
 
 	mux.HandleFunc("POST /api/auctions/{id}/bid", bidHandler(c, pg, rdb))
-	mux.HandleFunc("GET /api/ws/auctions/{id}", sseAuctionHandler(rdb))
-
 	// Profile Settings Update Page
 	mux.HandleFunc("/api/profile/update", updateProfileHandler(c))
 	mux.HandleFunc("/api/profile/password", updatePasswordHandler(c))
@@ -50,6 +47,8 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	// Payment method routesx
 	mux.HandleFunc("/api/add-payment", paymentHandler(c))
 	mux.HandleFunc("/api/add-payment/{id}", paymentByIDHandler(c))
+
+	mux.HandleFunc("GET /api/ws/auctions/{id}", sseAuctionHandler(rdb))
 	return mux
 }
 
@@ -125,7 +124,7 @@ func bidHandler(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handle
 		bidTime := time.Now()
 		go func(aid, uid string, amt float64, t time.Time) {
 			bgCtx := context.Background()
-			query := `INSERT INTO bids (listing_id, user_id, bid_amount, created_at) VALUES ($1, $2, $3, $4)`
+			query := `INSERT INTO bids (listing_id, user_id, bid_amount, timestamp) VALUES ($1, $2, $3, $4)`
 			_, err := pg.Exec(bgCtx, query, aid, uid, amt, t)
 			if err != nil {
 				log.Printf("Failed to sync bid to db: aid=%s uid=%s err=%v", aid, uid, err)
@@ -166,6 +165,9 @@ func sseAuctionHandler(rdb *redis.Client) http.HandlerFunc {
 		defer pubsub.Close()
 
 		ch := pubsub.Channel()
+
+		// Flush headers immediately so the client's EventSource 'open' event fires
+		flusher.Flush()
 
 		for {
 			select {
