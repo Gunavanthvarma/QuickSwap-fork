@@ -232,6 +232,51 @@
       ]
     },
     {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/notifications", "host": ["{{base_url}}"], "path": ["api","notifications"] }
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/notifications/count", "host": ["{{base_url}}"], "path": ["api","notifications","count"] }
+          }
+        },
+        {
+          "name": "Mark All as Read",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/notifications/read-all", "host": ["{{base_url}}"], "path": ["api","notifications","read-all"] }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/notifications/NOTIFICATION_ID/read", "host": ["{{base_url}}"], "path": ["api","notifications","NOTIFICATION_ID","read"] }
+          }
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/notifications/NOTIFICATION_ID", "host": ["{{base_url}}"], "path": ["api","notifications","NOTIFICATION_ID"] }
+          }
+        }
+      ]
+    },
+    {
       "name": "Payment Methods",
       "item": [
         {

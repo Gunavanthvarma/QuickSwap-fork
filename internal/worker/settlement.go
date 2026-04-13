@@ -10,6 +10,45 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// createAuctionEndedNotifications inserts notifications for the seller and winner (if any)
+// when an auction ends.
+func createAuctionEndedNotifications(ctx context.Context, pg *pgxpool.Pool, auctionID, title, sellerID string, winnerID *string, winningPrice *float64) {
+	insertNotif := func(userID, notifType, notifTitle, message string) {
+		_, err := pg.Exec(ctx, `
+			INSERT INTO notifications (user_id, type, title, message, listing_id)
+			VALUES ($1, $2, $3, $4, $5)
+		`, userID, notifType, notifTitle, message, auctionID)
+		if err != nil {
+			log.Printf("[Worker] Warning: failed to insert notification for user %s: %v", userID, err)
+		}
+	}
+
+	if winnerID != nil && winningPrice != nil {
+		// Notify seller — auction ended with a winner
+		insertNotif(
+			sellerID,
+			"auction_ended_seller",
+			"Your auction has ended",
+			fmt.Sprintf("Your auction for \"%s\" has ended. Winning bid: $%.2f.", title, *winningPrice),
+		)
+		// Notify winner
+		insertNotif(
+			*winnerID,
+			"auction_won",
+			"You won an auction!",
+			fmt.Sprintf("Congratulations! You won the auction for \"%s\" with a bid of $%.2f.", title, *winningPrice),
+		)
+	} else {
+		// Notify seller — auction ended with no bids
+		insertNotif(
+			sellerID,
+			"auction_ended_no_bids",
+			"Your auction has ended",
+			fmt.Sprintf("Your auction for \"%s\" has ended with no bids.", title),
+		)
+	}
+}
+
 // StartAuctionSettlementWorker runs a background job that checks the Redis ZSET for expired auctions.
 func StartAuctionSettlementWorker(ctx context.Context, rdb *redis.Client, pg *pgxpool.Pool) {
 	if rdb == nil || pg == nil {
@@ -17,16 +56,32 @@ func StartAuctionSettlementWorker(ctx context.Context, rdb *redis.Client, pg *pg
 		return
 	}
 
-	// First, ensure the listings table has the required columns for settlement
-	// (Safeguard in case they haven't been added to the database schema yet)
+	// Ensure listings table has required settlement columns.
 	_, err := pg.Exec(ctx, `
-		ALTER TABLE listings 
+		ALTER TABLE listings
 		ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active',
 		ADD COLUMN IF NOT EXISTS winner_id UUID,
 		ADD COLUMN IF NOT EXISTS winning_price NUMERIC;
 	`)
 	if err != nil {
 		log.Printf("[Worker] Warning: could not verify/alter listings table schema: %v", err)
+	}
+
+	// Ensure notifications table exists.
+	_, err = pg.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS notifications (
+			id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id    UUID NOT NULL,
+			type       TEXT NOT NULL,
+			title      TEXT NOT NULL,
+			message    TEXT NOT NULL,
+			listing_id UUID NOT NULL,
+			is_read    BOOLEAN NOT NULL DEFAULT false,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		);
+	`)
+	if err != nil {
+		log.Printf("[Worker] Warning: could not create notifications table: %v", err)
 	}
 
 	ticker := time.NewTicker(5 * time.Second)
@@ -100,15 +155,15 @@ func settleAuction(ctx context.Context, rdb *redis.Client, pg *pgxpool.Pool, auc
 	var updateErr error
 	if highestBidder != nil && price != nil {
 		_, updateErr = pg.Exec(ctx, `
-			UPDATE listings 
-			SET status = 'Ended', winner_id = $1, winning_price = $2 
+			UPDATE listings
+			SET status = 'Ended', winner_id = $1, winning_price = $2
 			WHERE id = $3
 		`, *highestBidder, *price, auctionID)
 	} else {
 		// Auction ended with no bids
 		_, updateErr = pg.Exec(ctx, `
-			UPDATE listings 
-			SET status = 'Ended' 
+			UPDATE listings
+			SET status = 'Ended'
 			WHERE id = $1
 		`, auctionID)
 	}
@@ -117,6 +172,18 @@ func settleAuction(ctx context.Context, rdb *redis.Client, pg *pgxpool.Pool, auc
 		log.Printf("[Worker] Error updating Postgres for auction %s: %v", auctionID, updateErr)
 		// We avoid removing from ZSET if we failed to update DB, so it retries next time
 		return
+	}
+
+	// 3b. Fetch listing title and seller_id for notification messages.
+	var listingTitle string
+	var sellerID string
+	fetchErr := pg.QueryRow(ctx, `
+		SELECT title, seller_id FROM listings WHERE id = $1
+	`, auctionID).Scan(&listingTitle, &sellerID)
+	if fetchErr != nil {
+		log.Printf("[Worker] Warning: could not fetch listing details for notifications (auction %s): %v", auctionID, fetchErr)
+	} else {
+		createAuctionEndedNotifications(ctx, pg, auctionID, listingTitle, sellerID, highestBidder, price)
 	}
 
 	// 4. Clean up Redis Cache
