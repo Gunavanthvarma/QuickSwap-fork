@@ -6,12 +6,12 @@ import (
 	"log"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/quickswap/quickswap/internal/db"
 	"github.com/redis/go-redis/v9"
 )
 
 // StartAuctionSettlementWorker runs a background job that checks the Redis ZSET for expired auctions.
-func StartAuctionSettlementWorker(ctx context.Context, rdb *redis.Client, pg *pgxpool.Pool) {
+func StartAuctionSettlementWorker(ctx context.Context, rdb *redis.Client, pg db.DBQuerier) {
 	if rdb == nil || pg == nil {
 		log.Println("[Worker] Warning: rdb or pg is nil. Auction settlement worker will not start.")
 		return
@@ -45,7 +45,7 @@ func StartAuctionSettlementWorker(ctx context.Context, rdb *redis.Client, pg *pg
 	}
 }
 
-func processExpiredAuctions(ctx context.Context, rdb *redis.Client, pg *pgxpool.Pool) {
+func processExpiredAuctions(ctx context.Context, rdb *redis.Client, pg db.DBQuerier) {
 	nowUnix := time.Now().Unix()
 
 	// 1. Fetch expired auctions from the ZSET where score (end time) <= current time
@@ -69,7 +69,7 @@ func processExpiredAuctions(ctx context.Context, rdb *redis.Client, pg *pgxpool.
 	}
 }
 
-func settleAuction(ctx context.Context, rdb *redis.Client, pg *pgxpool.Pool, auctionID string) {
+func settleAuction(ctx context.Context, rdb *redis.Client, pg db.DBQuerier, auctionID string) {
 	log.Printf("[Worker] Settling expired auction %s...", auctionID)
 
 	priceKey := fmt.Sprintf("auction:%s:price", auctionID)

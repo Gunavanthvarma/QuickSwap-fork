@@ -9,14 +9,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/quickswap/quickswap/internal/auth"
 	"github.com/quickswap/quickswap/internal/db"
 	"github.com/redis/go-redis/v9"
 )
 
 // NewRouter returns an http.Handler with auth routes registered.
-func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler {
+func NewRouter(c *auth.Client, pg db.DBQuerier, rdb *redis.Client) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/auth/login", loginHandler(c))
 	mux.HandleFunc("/api/auth/signup", signupHandler(c))
@@ -52,7 +51,7 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	return mux
 }
 
-func bidHandler(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.HandlerFunc {
+func bidHandler(c *auth.Client, pg db.DBQuerier, rdb *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auctionID := r.PathValue("id")
 		if auctionID == "" {
