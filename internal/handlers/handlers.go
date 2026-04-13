@@ -166,6 +166,9 @@ func sseAuctionHandler(rdb *redis.Client) http.HandlerFunc {
 
 		ch := pubsub.Channel()
 
+		// Flush headers immediately so the client's EventSource 'open' event fires
+		flusher.Flush()
+
 		for {
 			select {
 			case <-ctx.Done():

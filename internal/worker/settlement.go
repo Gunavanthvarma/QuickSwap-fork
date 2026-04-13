@@ -12,6 +12,11 @@ import (
 
 // StartAuctionSettlementWorker runs a background job that checks the Redis ZSET for expired auctions.
 func StartAuctionSettlementWorker(ctx context.Context, rdb *redis.Client, pg *pgxpool.Pool) {
+	if rdb == nil || pg == nil {
+		log.Println("[Worker] Warning: rdb or pg is nil. Auction settlement worker will not start.")
+		return
+	}
+
 	// First, ensure the listings table has the required columns for settlement
 	// (Safeguard in case they haven't been added to the database schema yet)
 	_, err := pg.Exec(ctx, `
