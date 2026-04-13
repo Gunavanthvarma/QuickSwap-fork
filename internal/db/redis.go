@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -45,7 +44,7 @@ func NewRedisClient(ctx context.Context) (*redis.Client, error) {
 
 // EnsureAuctionCached fetches auction data from Postgres if missing in Redis.
 // It uses a Redis Pipeline to set both price and end_time atomically in the cache.
-func EnsureAuctionCached(ctx context.Context, rdb *redis.Client, pg *pgxpool.Pool, auctionID string) error {
+func EnsureAuctionCached(ctx context.Context, rdb *redis.Client, pg DBQuerier, auctionID string) error {
 	priceKey := fmt.Sprintf("auction:%s:price", auctionID)
 
 	// Step 1: Check if already cached
