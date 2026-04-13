@@ -46,13 +46,34 @@ const ProfilePage: React.FC = () => {
   const { userBids, loading: bidsLoading, error: bidsError, fetchMyBids } = useMyBids();
 
   useEffect(() => {
-    if (user) fetchMyListings();
-  }, [user]);
+    if (user) {
+      void fetchMyListings();
+    }
+  }, [user, fetchMyListings]);
+
+  useEffect(() => {
+    if (activeTab !== "bids") return;
+
+    // Keep bid history fresh while user watches "My Bids".
+    const intervalId = window.setInterval(() => {
+      void fetchMyBids();
+    }, 10_000);
+
+    const onFocus = () => {
+      void fetchMyBids();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [activeTab, fetchMyBids]);
 
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
-    if (tab === "listings") fetchMyListings();
-    if (tab === "bids") fetchMyBids();
+    if (tab === "listings") void fetchMyListings();
+    if (tab === "bids") void fetchMyBids();
   };
 
   if (loading) return <div className="profile-page">Loading profile...</div>;
