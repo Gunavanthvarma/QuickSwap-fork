@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -50,16 +51,24 @@ func EnsureAuctionCached(ctx context.Context, rdb *redis.Client, pg *pgxpool.Poo
 	// Step 1: Check if already cached
 	_, err := rdb.Get(ctx, priceKey).Result()
 	if err == nil {
+		log.Printf("[Redis] Cache HIT for auction %s", auctionID)
 		return nil // Cache hit! Fast path.
 	} else if err != redis.Nil {
 		return fmt.Errorf("redis error checking cache: %w", err)
 	}
 
-	// Step 2: Cache miss, fetch starting state from Postgres 
+	// Step 2: Cache miss, fetch starting state from Postgres
+	log.Printf("[Redis] Cache MISS for auction %s. Fetching from PostgreSQL...", auctionID)
 	var startPrice float64
 	var endTime time.Time
-	
-	query := "SELECT start_price, end_time FROM auctions WHERE id = $1"
+
+	query := `
+		SELECT 
+			COALESCE((SELECT bid_amount FROM bids WHERE listing_id = $1 ORDER BY bid_amount DESC LIMIT 1), starting_bid), 
+			auction_end_time 
+		FROM listings 
+		WHERE id = $1
+	`
 	err = pg.QueryRow(ctx, query, auctionID).Scan(&startPrice, &endTime)
 	if err != nil {
 		return fmt.Errorf("failed to fetch auction from db: %w", err)
@@ -69,7 +78,11 @@ func EnsureAuctionCached(ctx context.Context, rdb *redis.Client, pg *pgxpool.Poo
 	pipe := rdb.Pipeline()
 	pipe.Set(ctx, priceKey, startPrice, 0)
 	pipe.Set(ctx, fmt.Sprintf("auction:%s:end_time", auctionID), endTime.Unix(), 0)
-	
+	pipe.ZAdd(ctx, "active_auctions", redis.Z{
+		Score:  float64(endTime.Unix()),
+		Member: auctionID,
+	})
+
 	_, err = pipe.Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to cache auction in redis: %w", err)
@@ -100,13 +113,14 @@ func ProcessBidWithTx(ctx context.Context, rdb *redis.Client, auctionID string, 
 		// Read current price
 		currentPrice, err := tx.Get(ctx, priceKey).Float64()
 		if err == nil {
+			log.Printf("[Redis] Validating bid for auction %s: processing amount $%.2f against current highest bid $%.2f", auctionID, amount, currentPrice)
 			if amount <= currentPrice {
 				return fmt.Errorf("Bid Too Low: amount must be greater than current price")
 			}
 		} else if err != redis.Nil {
 			return fmt.Errorf("redis error getting price: %w", err)
 		} else if err == redis.Nil {
-			// If price doesn't exist, we could reject or just continue. 
+			// If price doesn't exist, we could reject or just continue.
 			// We continue assuming amount > 0.
 			if amount <= 0 {
 				return fmt.Errorf("Bid Too Low: amount must be greater than current price")
@@ -129,9 +143,25 @@ func ProcessBidWithTx(ctx context.Context, rdb *redis.Client, auctionID string, 
 	for i := 0; i < maxRetries; i++ {
 		err := rdb.Watch(ctx, txf, priceKey)
 		if err == nil {
+			log.Printf("[Redis] SUCCESS: New highest bid placed for auction %s by user %s: $%.2f", auctionID, userID, amount)
+
+			// Publish event to Redis Pub/Sub
+			payload := map[string]interface{}{
+				"auction_id":     auctionID,
+				"current_bid":    amount,
+				"highest_bidder": userID,
+			}
+			if payloadBytes, jsonErr := json.Marshal(payload); jsonErr == nil {
+				// Fire and forget via a background context or just use current context
+				rdb.Publish(ctx, fmt.Sprintf("auction:events:%s", auctionID), payloadBytes)
+			} else {
+				log.Printf("Failed to marshal bid event for auction %s: %v", auctionID, jsonErr)
+			}
+
 			return nil
 		}
 		if err == redis.TxFailedErr {
+			log.Printf("[Redis] RACE CONDITION DETECTED for auction %s! Retrying bid placement...", auctionID)
 			continue // Retry on race condition
 		}
 		return err

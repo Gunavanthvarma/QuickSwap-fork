@@ -245,9 +245,9 @@ func topListingsHandler(authClient *auth.Client) http.HandlerFunc {
 			}
 
 			// Trending: highest current bid (top N)
-			// Ending soon: auction_end_time within next 1 hour
+			// Ending soon: active auction with <= 24h until auction_end_time
 			// Starting soon: auction_start_time within next 1 hour and not started yet
-			if auctionEnd.After(now) && auctionEnd.Before(now.Add(1*time.Hour)) {
+			if auctionEnd.After(now) && auctionEnd.Sub(now) <= 24*time.Hour {
 				endingSoon = append(endingSoon, card)
 			} else if auctionStart.After(now) && auctionStart.Before(now.Add(1*time.Hour)) {
 				startingSoon = append(startingSoon, card)
@@ -268,8 +268,8 @@ func topListingsHandler(authClient *auth.Client) http.HandlerFunc {
 		if len(trending) > 5 {
 			trending = trending[:5]
 		}
-		if len(endingSoon) > 5 {
-			endingSoon = endingSoon[:5]
+		if len(endingSoon) > 50 {
+			endingSoon = endingSoon[:50]
 		}
 		if len(startingSoon) > 5 {
 			startingSoon = startingSoon[:5]

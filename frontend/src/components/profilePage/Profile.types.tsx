@@ -16,6 +16,20 @@ export interface MyListingApiItem {
   status: string;
 }
 
+/** JSON body from GET /api/mylistings */
+export interface MyListingsApiResponse {
+  listings?: MyListingApiItem[];
+  error?: string;
+  message?: string;
+}
+
+/** JSON body from GET /api/mybids when wrapped in an object */
+export interface MyBidsApiResponse {
+  bids?: MyBidsApiItem[];
+  error?: string;
+  message?: string;
+}
+
 export interface MyBidsApiItem {
   id: string;
   listing_id: string;
@@ -59,4 +73,36 @@ export interface EditFormState {
   mobile: string;
 }
 
+export interface UpdatePasswordFormState {
+  old_password: string;
+  new_password: string;
+  confirm_password: string;
+}
+
 export type ActiveTab = "listings" | "bids" | "settings";
+
+/** Card brand for icons (mapped from `card_type` strings). */
+export type UiPaymentBrand = "visa" | "mastercard" | "amex" | "other";
+
+/** Payment method from GET /api/add-payment (matches backend / Supabase). */
+export interface ApiPaymentMethod {
+  id: string;
+  card_type: string;
+  last4: string;
+  expiry_month: number;
+  expiry_year: number;
+  is_default: boolean;
+}
+
+/** Address row from GET /api/address (matches backend / Supabase). */
+export interface ApiAddress {
+  id: string;
+  full_name: string;
+  street1: string;
+  street2: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  is_default: boolean;
+}

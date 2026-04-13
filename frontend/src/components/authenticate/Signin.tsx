@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Box,
   TextField,
   Button,
@@ -13,7 +14,11 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import AuthLayout from './AuthLayout';
 import './authenticate.css';
-import { useNavigate } from 'react-router-dom'; 
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/useAuth';
+import { getSafeReturnPath, type SigninRedirectState } from '../../auth/signinRedirect';
+import type { ProfileResponse } from '../profilePage/Profile.types';
+import { authHeaders, getApiUrl } from '../../lib/api';
 
 interface SignInFormData {
   email: string;
@@ -46,8 +51,9 @@ interface AuthResponse {
 }
 
 const Signin: React.FC = () => {
-  const navigate = useNavigate(); 
-
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { refreshUser, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState<SignInFormData>({
     email: '',
     password: '',
@@ -58,6 +64,20 @@ const Signin: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const navState = location.state as SigninRedirectState | null;
+  const signupSuccessFromNav = navState?.signupSuccessMessage;
+  const [signupBannerDismissed, setSignupBannerDismissed] = useState(false);
+  const showSignupSuccess =
+    typeof signupSuccessFromNav === 'string' &&
+    signupSuccessFromNav.length > 0 &&
+    !signupBannerDismissed;
+
+  useEffect(() => {
+    if (!isAuthenticated || location.pathname !== '/signin') return;
+    navigate(getSafeReturnPath(location.state as SigninRedirectState | null), {
+      replace: true,
+    });
+  }, [isAuthenticated, location.pathname, location.state, navigate]);
 
   const handleInputChange = (field: keyof SignInFormData) => (
     event: React.ChangeEvent<HTMLInputElement>
@@ -97,15 +117,9 @@ const Signin: React.FC = () => {
     try {
       setLoading(true);
       setApiError(null);
-      const apiBase = (import.meta.env.VITE_API_BASE as string) || '';
-      const loginUrl = apiBase
-        ? `${apiBase.replace(/\/$/, '')}/api/auth/login`
-        : '/api/auth/login';
-      const response = await fetch(loginUrl, {
+      const response = await fetch(getApiUrl('/api/auth/login'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           email: formData.email.trim(),
           password: formData.password,
@@ -113,7 +127,8 @@ const Signin: React.FC = () => {
         }),
       });
 
-      const data: AuthResponse = await response.json();
+      const raw: unknown = await response.json();
+      const data = raw as AuthResponse;
 
       if (!response.ok || data.error) {
         throw new Error(data.error || 'Login failed');
@@ -138,32 +153,29 @@ const Signin: React.FC = () => {
       localStorage.setItem('accessToken', access_token);
 
       // Optional: store user
-      const profileUrl = apiBase
-        ? `${apiBase.replace(/\/$/, '')}/api/profile`
-        : '/api/profile';
-
       try {
-        const profileRes = await fetch(profileUrl, {
+        const profileRes = await fetch(getApiUrl('/api/profile'), {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${access_token}`
-          }
+          headers: authHeaders(access_token),
         });
         if (profileRes.ok) {
-          const profileData = await profileRes.json();
+          const profileRaw: unknown = await profileRes.json();
+          const profileData = profileRaw as ProfileResponse;
           localStorage.setItem('user', JSON.stringify(profileData));
         } else {
           localStorage.setItem('user', JSON.stringify(user));
         }
-      } catch (err) {
+      } catch {
         localStorage.setItem('user', JSON.stringify(user));
       }
 
-      // Redirect (example)
-      window.location.href = '/';
+      refreshUser();
+      navigate(getSafeReturnPath(location.state as SigninRedirectState | null), {
+        replace: true,
+      });
 
-    } catch (err: any) {
-      setApiError(err.message);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -178,6 +190,16 @@ const Signin: React.FC = () => {
       footerLinkHref="/signup"
     >
       <Box component="form" onSubmit={handleSubmit} className="form">
+
+        {showSignupSuccess && (
+          <Alert
+            severity="success"
+            onClose={() => setSignupBannerDismissed(true)}
+            sx={{ mb: 2 }}
+          >
+            {signupSuccessFromNav}
+          </Alert>
+        )}
 
         {apiError && (
           <Typography color="error" sx={{ mb: 2 }}>

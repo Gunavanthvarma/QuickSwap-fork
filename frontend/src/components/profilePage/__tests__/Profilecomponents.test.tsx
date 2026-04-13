@@ -38,6 +38,11 @@ describe('Profile Components', () => {
             expect(screen.getByText(/error message/i)).toBeInTheDocument();
         });
 
+        it('renders empty state with CTA when there are no listings', () => {
+            render(<ListingsTab listings={[]} loading={false} error={null} />, { wrapper: BrowserRouter });
+            expect(screen.getByRole('button', { name: /start your first listing/i })).toBeInTheDocument();
+        });
+
         it('renders list of listings', () => {
             render(<ListingsTab listings={mockListings} loading={false} error={null} />, { wrapper: BrowserRouter });
             expect(screen.getByText('Test Listing')).toBeInTheDocument();
@@ -46,7 +51,7 @@ describe('Profile Components', () => {
 
         it('navigates when a listing card is clicked', () => {
             render(<ListingsTab listings={mockListings} loading={false} error={null} />, { wrapper: BrowserRouter });
-            const card = screen.getByRole('article');
+            const card = screen.getByRole('button', { name: /open auction: test listing/i });
             fireEvent.click(card);
             expect(mockNavigate).toHaveBeenCalledWith('/auction/1');
         });
@@ -65,6 +70,11 @@ describe('Profile Components', () => {
             },
         ];
 
+        it('renders empty state with CTA when there are no bids', () => {
+            render(<BidsTab bids={[]} loading={false} error={null} />, { wrapper: BrowserRouter });
+            expect(screen.getByRole('button', { name: /browse live auctions/i })).toBeInTheDocument();
+        });
+
         it('renders list of bids', () => {
             render(<BidsTab bids={mockBids} loading={false} error={null} />, { wrapper: BrowserRouter });
             expect(screen.getByText('Test Bid')).toBeInTheDocument();
@@ -73,7 +83,7 @@ describe('Profile Components', () => {
 
         it('navigates when a bid card is clicked', () => {
             render(<BidsTab bids={mockBids} loading={false} error={null} />, { wrapper: BrowserRouter });
-            const card = screen.getByRole('article');
+            const card = screen.getByRole('button', { name: /open auction: test bid/i });
             fireEvent.click(card);
             expect(mockNavigate).toHaveBeenCalledWith('/auction/b1');
         });
@@ -100,9 +110,47 @@ describe('Profile Components', () => {
     describe('SettingsTab', () => {
         it('calls onEditProfile when edit button is clicked', () => {
             const onEditProfile = vi.fn();
-            render(<SettingsTab onEditProfile={onEditProfile} />);
+            const onUpdatePassword = vi.fn();
+            const onDeleteAccount = vi.fn();
+            render(
+                <SettingsTab
+                    onEditProfile={onEditProfile}
+                    onUpdatePassword={onUpdatePassword}
+                    onDeleteAccount={onDeleteAccount}
+                />
+            );
             fireEvent.click(screen.getByText(/edit profile/i));
             expect(onEditProfile).toHaveBeenCalled();
+        });
+
+        it('calls onUpdatePassword when update password button is clicked', () => {
+            const onEditProfile = vi.fn();
+            const onUpdatePassword = vi.fn();
+            const onDeleteAccount = vi.fn();
+            render(
+                <SettingsTab
+                    onEditProfile={onEditProfile}
+                    onUpdatePassword={onUpdatePassword}
+                    onDeleteAccount={onDeleteAccount}
+                />
+            );
+            fireEvent.click(screen.getByText(/update password/i));
+            expect(onUpdatePassword).toHaveBeenCalled();
+        });
+
+        it('calls onDeleteAccount when delete account button is clicked', () => {
+            const onEditProfile = vi.fn();
+            const onUpdatePassword = vi.fn();
+            const onDeleteAccount = vi.fn();
+            render(
+                <SettingsTab
+                    onEditProfile={onEditProfile}
+                    onUpdatePassword={onUpdatePassword}
+                    onDeleteAccount={onDeleteAccount}
+                />
+            );
+            fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
+            expect(onDeleteAccount).toHaveBeenCalled();
         });
     });
 });

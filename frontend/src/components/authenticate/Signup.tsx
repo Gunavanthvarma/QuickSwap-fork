@@ -15,6 +15,10 @@ import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import AuthLayout from './AuthLayout';
 import './authenticate.css';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/useAuth';
+import type { ProfileResponse } from '../profilePage/Profile.types';
+import { authHeaders, getApiUrl } from '../../lib/api';
 
 interface FormData {
   firstName: string;
@@ -35,6 +39,8 @@ interface FormErrors {
 }
 
 const Signup: React.FC = () => {
+  const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -108,16 +114,9 @@ const Signup: React.FC = () => {
       setLoading(true);
       setApiError(null);
 
-      const apiBase = (import.meta.env.VITE_API_BASE as string) || '';
-      const signupUrl = apiBase
-        ? `${apiBase.replace(/\/$/, '')}/api/auth/signup`
-        : '/api/auth/signup';
-
-      const response = await fetch(signupUrl, {
+      const response = await fetch(getApiUrl('/api/auth/signup'), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           first_name: formData.firstName.trim(),
           last_name: formData.lastName.trim(),
@@ -126,26 +125,37 @@ const Signup: React.FC = () => {
           mobile: formData.mobile.trim(),
         }),
       });
-      const parsed: any = await response.json();
+      const parsed = (await response.json()) as Record<string, unknown>;
 
       if (!response.ok || parsed.error) {
-        throw new Error(parsed.error || 'Signup failed');
+        const msg = typeof parsed.error === 'string' ? parsed.error : 'Signup failed';
+        throw new Error(msg);
       }
 
       // If backend auto-logs in user, accept either { session: {...} } or flat token fields
-      let session = parsed.session
-        ? parsed.session
-        : parsed.access_token
-        ? {
-            access_token: parsed.access_token,
-            refresh_token: parsed.refresh_token,
-            expires_in: parsed.expires_in,
-            user: parsed.user,
-          }
-        : null;
+      const session =
+        parsed.session && typeof parsed.session === 'object'
+          ? (parsed.session as {
+              access_token?: string;
+              refresh_token?: string;
+              expires_in?: number;
+              user?: unknown;
+            })
+          : parsed.access_token
+            ? {
+                access_token: parsed.access_token as string,
+                refresh_token: parsed.refresh_token as string,
+                expires_in: parsed.expires_in as number,
+                user: parsed.user,
+              }
+            : null;
 
-      if (session && session.access_token) {
-        const { access_token, refresh_token, expires_in, user } = session;
+      if (session?.access_token) {
+        const { access_token, user } = session;
+        const refresh_token =
+          typeof session.refresh_token === 'string' ? session.refresh_token : '';
+        const expires_in =
+          typeof session.expires_in === 'number' ? session.expires_in : 0;
 
         localStorage.setItem('accessToken', access_token);
         localStorage.setItem('refreshToken', refresh_token);
@@ -154,37 +164,39 @@ const Signup: React.FC = () => {
           (Date.now() + expires_in * 1000).toString()
         );
 
-        const profileUrl = apiBase
-          ? `${apiBase.replace(/\/$/, '')}/api/profile`
-          : '/api/profile';
-
         try {
-          const profileRes = await fetch(profileUrl, {
+          const profileRes = await fetch(getApiUrl('/api/profile'), {
             method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${access_token}`
-            }
+            headers: authHeaders(access_token),
           });
           if (profileRes.ok) {
-            const profileData = await profileRes.json();
+            const profileRaw: unknown = await profileRes.json();
+            const profileData = profileRaw as ProfileResponse;
             localStorage.setItem('user', JSON.stringify(profileData));
           } else {
             localStorage.setItem('user', JSON.stringify(user));
           }
-        } catch (err) {
+        } catch {
           localStorage.setItem('user', JSON.stringify(user));
         }
 
-        window.location.href = '/dashboard';
+        refreshUser();
+        navigate('/', { replace: true });
         return;
       }
 
-      // No session: signup likely requires email confirmation
-      alert(parsed.message || parsed.msg || 'Account created successfully. Please sign in.');
-      window.location.href = '/signin';
+      // No session: signup likely requires email confirmation — message shown on Sign in page
+      const successMsg =
+        (typeof parsed.message === 'string' && parsed.message) ||
+        (typeof parsed.msg === 'string' && parsed.msg) ||
+        'Account created successfully. Please sign in.';
+      navigate('/signin', {
+        replace: true,
+        state: { signupSuccessMessage: successMsg },
+      });
 
-    } catch (err: any) {
-      setApiError(err.message);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Signup failed');
     } finally {
       setLoading(false);
     }

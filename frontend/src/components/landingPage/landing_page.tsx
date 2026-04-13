@@ -1,5 +1,6 @@
 // LandingPage.tsx
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/useAuth";
 import "./landing_page.css";
 // import Signup from './components/authenticate/Signup';
 
@@ -40,27 +41,17 @@ const mockListings = [
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  
-  const isLoggedIn = !!localStorage.getItem("user");
-  const handleLogout = () => {
-    // Clear auth-related data
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("accessTokenExpiry");
-    localStorage.removeItem("user");
+  const { isAuthenticated, logout } = useAuth();
 
-    // Navigate back to landing page
-    navigate("/", { replace: true });
+  const handleLogout = () => {
+    logout();
   };
 
   const handleStartSelling = () => {
-    if (!isLoggedIn) {
-      // not logged in → go to sign in
+    if (!isAuthenticated) {
       navigate("/signin");
       return;
     }
-    // logged in: later this can go to /sell; for now maybe /profile
-    // navigate("/sell");
     navigate("/start_selling");
   };
 
@@ -71,32 +62,33 @@ const LandingPage = () => {
         <div className="navbar-logo">
           <span className="logo-text">Quickswap</span>
         </div>
-        <nav className="navbar-links">
+        <nav className="navbar-links" aria-label="Primary">
           <a href="#features">How it works</a>
           <a href="#auctions">Live auctions</a>
-          {!isLoggedIn && (<a href="#about">Why Quickswap</a>)}
+          {!isAuthenticated && (<a href="#about">Why Quickswap</a>)}
         </nav>
         <div className="navbar-actions">
-          <button className="btn primary" onClick={handleStartSelling}>
+          <button type="button" className="btn primary" onClick={handleStartSelling}>
             Start selling
           </button>
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <>
-              <button className="btn ghost" onClick={() => navigate("/profile")}>
+              <button type="button" className="btn ghost" onClick={() => navigate("/profile")}>
                 Profile
               </button>
-              <button className="btn ghost" onClick={handleLogout}>
+              <button type="button" className="btn ghost" onClick={handleLogout}>
                 Logout
               </button>
             </>
           ) : (
-          <button className="btn ghost" onClick={() => navigate("/signin")}>
+          <button type="button" className="btn ghost" onClick={() => navigate("/signin")}>
             Sign in
           </button>
         )}
         </div>
       </header>
 
+      <main id="main-content">
       {/* Hero */}
       <section className="hero">
         <div className="hero-content">
@@ -112,8 +104,8 @@ const LandingPage = () => {
             compete in real time while the market discovers the true price.
           </p>
           <div className="hero-actions">
-            <button className="btn primary">Launch a 15‑min auction</button>
-            <button className="btn ghost">Browse live bids</button>
+            <button type="button" className="btn primary">Launch a 15‑min auction</button>
+            <button type="button" className="btn ghost">Browse live bids</button>
           </div>
           <div className="hero-meta">
             <div>
@@ -135,7 +127,11 @@ const LandingPage = () => {
           <div className="hero-card main">
             <img
               src="https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=800"
-              alt="Real-time bidding interface"
+              alt="People collaborating at a laptop during a live auction-style session"
+              width={800}
+              height={533}
+              decoding="async"
+              fetchPriority="high"
             />
             <div className="hero-tag">
               Live bid · 00:03:21 left · 17 active bidders
@@ -193,14 +189,21 @@ const LandingPage = () => {
           {mockListings.map((listing) => (
             <article key={listing.id} className="product-card">
               <div className="product-image-wrap">
-                <img src={listing.image} alt={listing.name} />
+                <img
+                  src={listing.image}
+                  alt={listing.name}
+                  width={600}
+                  height={400}
+                  loading="lazy"
+                  decoding="async"
+                />
                 <span className="product-tag">{listing.tag}</span>
               </div>
               <div className="product-body">
                 <h3>{listing.name}</h3>
                 <div className="product-meta">
                   <span className="product-price">{listing.price}</span>
-                  <button className="btn tiny">View auction</button>
+                  <button type="button" className="btn tiny">View auction</button>
                 </div>
               </div>
             </article>
@@ -209,7 +212,7 @@ const LandingPage = () => {
       </section>
 
       {/* About / CTA */}
-      {!isLoggedIn && (
+      {!isAuthenticated && (
       <section id="about" className="about">
         <div className="about-inner">
           <div>
@@ -221,10 +224,12 @@ const LandingPage = () => {
               competitive bidding.
             </p>
           </div>
-          <button className="btn primary" onClick={() => navigate("/signin")}>Join the early access</button>
+          <button type="button" className="btn primary" onClick={() => navigate("/signin")}>Join the early access</button>
         </div>
       </section>
       )}
+
+      </main>
 
       {/* Footer */}
       <footer className="footer">

@@ -9,7 +9,7 @@ import (
 	"github.com/quickswap/quickswap/internal/auth"
 	"github.com/quickswap/quickswap/internal/db"
 	"github.com/quickswap/quickswap/internal/handlers"
-
+	"github.com/quickswap/quickswap/internal/worker"
 )
 
 func main() {
@@ -45,6 +45,9 @@ func main() {
 	_ = pgPool      // Keep for future use in handlers
 	_ = redisClient // Keep for future use in handlers
 
+	// Start Auction Background Worker
+	go worker.StartAuctionSettlementWorker(ctx, redisClient, pgPool)
+
 	// Static files (login page)
 	fs := http.FileServer(http.Dir("frontend"))
 	http.Handle("/", fs)
@@ -63,7 +66,7 @@ func main() {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
