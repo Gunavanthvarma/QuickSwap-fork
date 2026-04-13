@@ -40,6 +40,7 @@ describe('Profile Components', () => {
 
         it('renders empty state with CTA when there are no listings', () => {
             render(<ListingsTab listings={[]} loading={false} error={null} />, { wrapper: BrowserRouter });
+            expect(screen.getByText(/no listings yet/i)).toBeInTheDocument();
             expect(screen.getByRole('button', { name: /start your first listing/i })).toBeInTheDocument();
         });
 
@@ -92,9 +93,18 @@ describe('Profile Components', () => {
     describe('ProfileHeader', () => {
         const mockUser = { id: 'u1', email: 'test@example.com' };
         it('renders user info', () => {
-            render(<ProfileHeader user={mockUser} displayName="Test User" />);
+            render(
+                <ProfileHeader
+                    user={mockUser}
+                    displayName="Test User"
+                    itemsSold={3}
+                    memberSinceLabel="March 2025"
+                />,
+            );
             expect(screen.getByText('Test User')).toBeInTheDocument();
             expect(screen.getByText('test@example.com')).toBeInTheDocument();
+            expect(screen.getByText('3')).toBeInTheDocument();
+            expect(screen.getByText('March 2025')).toBeInTheDocument();
         });
     });
 

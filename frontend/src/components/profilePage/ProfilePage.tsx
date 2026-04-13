@@ -4,10 +4,12 @@ import "./profile_page.css";
 import "../landingPage/loggedin_landing_page.css";
 
 import type { ActiveTab } from "./Profile.types";
-import { useProfile, useMyListings, useMyBids } from "./ProfileHooks";
+import { useProfile, useMyListings, useMyBids, useProfileStats } from "./ProfileHooks";
 import {
   ProfileNavbar,
+  ProfileAside,
   ProfileHeader,
+  formatMemberSinceLabel,
   ProfileTabs,
   EditProfileModal,
   UpdatePasswordModal,
@@ -44,12 +46,19 @@ const ProfilePage: React.FC = () => {
 
   const { userListings, loading: listingsLoading, error: listingsError, fetchMyListings } = useMyListings();
   const { userBids, loading: bidsLoading, error: bidsError, fetchMyBids } = useMyBids();
+  const { itemsSold, fetchProfileStats } = useProfileStats();
 
   useEffect(() => {
     if (user) {
       void fetchMyListings();
     }
   }, [user, fetchMyListings]);
+
+  useEffect(() => {
+    if (user && !loading) {
+      void fetchProfileStats();
+    }
+  }, [user, loading, fetchProfileStats]);
 
   useEffect(() => {
     if (activeTab !== "bids") return;
@@ -132,29 +141,39 @@ const ProfilePage: React.FC = () => {
         )}
 
       <ProfileNavbar />
-      <ProfileHeader user={user} displayName={displayName} />
-      <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />
+      <div className="profile-shell">
+        <ProfileAside />
+        <div className="profile-main-column">
+          <ProfileHeader
+            user={user}
+            displayName={displayName}
+            itemsSold={itemsSold}
+            memberSinceLabel={formatMemberSinceLabel(user.created_at)}
+          />
+          <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
-      <section className="profile-content">
-        {activeTab === "listings" && (
-          <ListingsTab
-            listings={userListings}
-            loading={listingsLoading}
-            error={listingsError}
-            onRefreshListings={() => void fetchMyListings()}
-          />
-        )}
-        {activeTab === "bids" && (
-          <BidsTab bids={userBids} loading={bidsLoading} error={bidsError}  />
-        )}
-        {activeTab === "settings" && (
-          <SettingsTab
-            onEditProfile={handleEditOpen}
-            onUpdatePassword={handlePasswordOpen}
-            onDeleteAccount={handleDeleteAccountOpen}
-          />
-        )}
-      </section>
+          <section className="profile-content">
+            {activeTab === "listings" && (
+              <ListingsTab
+                listings={userListings}
+                loading={listingsLoading}
+                error={listingsError}
+                onRefreshListings={() => void fetchMyListings()}
+              />
+            )}
+            {activeTab === "bids" && (
+              <BidsTab bids={userBids} loading={bidsLoading} error={bidsError} />
+            )}
+            {activeTab === "settings" && (
+              <SettingsTab
+                onEditProfile={handleEditOpen}
+                onUpdatePassword={handlePasswordOpen}
+                onDeleteAccount={handleDeleteAccountOpen}
+              />
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 };

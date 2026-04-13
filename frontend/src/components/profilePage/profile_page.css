@@ -67,9 +67,87 @@ body {
 
 .profile-page {
   min-height: 100vh;
-  max-width: 1120px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 20px 16px 40px;
+}
+
+.profile-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.profile-main-column {
+  min-width: 0;
+}
+
+.profile-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.profile-sidebar-card {
+  background: var(--card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-subtle);
+  padding: 16px 18px;
+}
+
+.profile-sidebar-title {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.profile-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-sidebar-link {
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 6px 0;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.profile-sidebar-link:hover {
+  text-decoration: underline;
+}
+
+.profile-sidebar-text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .profile-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .profile-sidebar-card {
+    flex: 1 1 200px;
+  }
 }
 
 /* Navbar — nav links centered; back + logo pinned left */
@@ -261,12 +339,6 @@ body {
   color: var(--muted);
 }
 
-.profile-bio {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
 .profile-stats {
   display: flex;
   gap: 24px;
@@ -283,6 +355,12 @@ body {
   font-size: 1.3rem;
   font-weight: 600;
   color: var(--text);
+}
+
+.stat-value--compact {
+  font-size: 0.95rem;
+  line-height: 1.25;
+  font-weight: 600;
 }
 
 .stat-label {
@@ -334,6 +412,10 @@ body {
 .profile-bids-empty {
   width: 100%;
   padding: 8px 0 24px;
+}
+
+.profile-listings-empty .strip-scroll--empty {
+  min-height: 220px;
 }
 
 .listings-grid,

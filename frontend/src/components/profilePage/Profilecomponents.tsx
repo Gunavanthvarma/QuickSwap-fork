@@ -39,12 +39,26 @@ export const ProfileNavbar: React.FC = () => {
 
 // ─── ProfileHeader ────────────────────────────────────────────────────────────
 
+export function formatMemberSinceLabel(iso?: string): string | null {
+  if (!iso?.trim()) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
 interface ProfileHeaderProps {
   user: ProfileResponse;
   displayName: string;
+  itemsSold: number | null;
+  memberSinceLabel: string | null;
 }
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, displayName }) => (
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
+  user,
+  displayName,
+  itemsSold,
+  memberSinceLabel,
+}) => (
   <section className="profile-header" aria-labelledby="profile-display-name">
     <div className="profile-header-content">
       <div className="profile-avatar">
@@ -66,13 +80,51 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, displayName 
         <p className="profile-username">{user.email}</p>
       </div>
       <div className="profile-stats">
-        <div className="stat"><span className="stat-value">24</span><span className="stat-label">Items sold</span></div>
-        <div className="stat"><span className="stat-value">4.9</span><span className="stat-label">Rating</span></div>
-        <div className="stat"><span className="stat-value">98%</span><span className="stat-label">Response rate</span></div>
+        <div className="stat">
+          <span className="stat-value">{itemsSold !== null ? itemsSold : "—"}</span>
+          <span className="stat-label">Auctions ended</span>
+        </div>
+        {memberSinceLabel ? (
+          <div className="stat">
+            <span className="stat-value stat-value--compact">{memberSinceLabel}</span>
+            <span className="stat-label">Member since</span>
+          </div>
+        ) : null}
       </div>
     </div>
   </section>
 );
+
+// ─── ProfileAside (sidebar) ───────────────────────────────────────────────────
+
+export const ProfileAside: React.FC = () => {
+  const navigate = useNavigate();
+  return (
+    <aside className="profile-sidebar" aria-label="Profile shortcuts">
+      <div className="profile-sidebar-card">
+        <h2 className="profile-sidebar-title">Quick links</h2>
+        <nav className="profile-sidebar-nav">
+          <button type="button" className="profile-sidebar-link" onClick={() => navigate("/")}>
+            Browse home
+          </button>
+          <button type="button" className="profile-sidebar-link" onClick={() => navigate("/start_selling")}>
+            Start selling
+          </button>
+          <button type="button" className="profile-sidebar-link" onClick={() => navigate("/explore/trending")}>
+            Explore trending
+          </button>
+        </nav>
+      </div>
+      <div className="profile-sidebar-card">
+        <h2 className="profile-sidebar-title">Activity</h2>
+        <p className="profile-sidebar-text">
+          Use the notifications bell on the home bar for alerts. Your listings and bids are updated in the tabs
+          beside this panel.
+        </p>
+      </div>
+    </aside>
+  );
+};
 
 // ─── ProfileTabs ──────────────────────────────────────────────────────────────
 
@@ -480,6 +532,8 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
           <StripEmptyStateView
             config={{
               illustration: "first-listing",
+              title: "No listings yet",
+              description: "Create your first auction to reach buyers with a clear end time and live bidding.",
               ctaLabel: "Start your first listing",
               onCta: () => navigate("/start_selling"),
             }}

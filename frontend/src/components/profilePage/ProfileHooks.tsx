@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { readUserFromStorage } from "../../auth/auth-context";
+import { notifyAuthSessionExpired, readUserFromStorage } from "../../auth/auth-context";
 import { useSignInRedirect } from "../../auth/useSignInRedirect";
 import { apiErrorMessage, authHeaders, getApiUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
@@ -22,6 +22,23 @@ import type {
 export type ProfileFetchOptions = {
   signal?: AbortSignal;
 };
+
+function mergeProfileFromApi(base: ProfileResponse, row: Record<string, unknown>): ProfileResponse {
+  const out: ProfileResponse = { ...base };
+  const pickStr = (k: string): string | undefined =>
+    typeof row[k] === "string" ? (row[k] as string) : undefined;
+  const first = pickStr("first_name");
+  const last = pickStr("last_name");
+  const mobile = pickStr("mobile");
+  const email = pickStr("email");
+  if (first !== undefined) out.first_name = first;
+  if (last !== undefined) out.last_name = last;
+  if (mobile !== undefined) out.mobile = mobile;
+  if (email !== undefined) out.email = email;
+  const created = pickStr("created_at");
+  if (created !== undefined) out.created_at = created;
+  return out;
+}
 
 // ─── useProfile ───────────────────────────────────────────────────────────────
 
@@ -60,27 +77,57 @@ export const useProfile = () => {
   const redirectToSignin = useSignInRedirect();
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        redirectToSignin();
-        return;
-      }
+    let cancelled = false;
 
-      const parsed = readUserFromStorage();
-      if (!parsed) {
-        redirectToSignin();
-        return;
-      }
+    const init = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+          redirectToSignin();
+          return;
+        }
 
-      setUser(parsed);
-    } catch (err: unknown) {
-      console.error("Failed to parse user from local storage:", err);
-      setError("Failed to load profile");
-      redirectToSignin();
-    } finally {
-      setLoading(false);
-    }
+        const parsed = readUserFromStorage();
+        if (!parsed) {
+          redirectToSignin();
+          return;
+        }
+
+        if (!cancelled) setUser(parsed);
+
+        const res = await fetch(getApiUrl("/api/profile"), {
+          method: "GET",
+          headers: authHeaders(token),
+        });
+
+        if (res.status === 401) {
+          notifyAuthSessionExpired();
+          redirectToSignin();
+          return;
+        }
+
+        if (!cancelled && res.ok) {
+          const row: unknown = await res.json().catch(() => null);
+          if (row && typeof row === "object" && !Array.isArray(row)) {
+            const merged = mergeProfileFromApi(parsed, row as Record<string, unknown>);
+            setUser(merged);
+            localStorage.setItem("user", JSON.stringify(merged));
+          }
+        }
+      } catch (err: unknown) {
+        console.error("Failed to load profile:", err);
+        if (!cancelled) setError("Failed to load profile");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void init();
+    return () => {
+      cancelled = true;
+    };
   }, [redirectToSignin]);
 
   const handleEditOpen = () => {
@@ -163,6 +210,7 @@ export const useProfile = () => {
       if (!response.ok) {
         if (response.status === 401) {
           closeDeleteAccountFlow();
+          notifyAuthSessionExpired();
           redirectToSignin();
           return;
         }
@@ -239,6 +287,7 @@ export const useProfile = () => {
             setPasswordUpdateError(apiError || "Incorrect old password");
             return false;
           }
+          notifyAuthSessionExpired();
           redirectToSignin();
           return false;
         }
@@ -288,6 +337,7 @@ export const useProfile = () => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 401) {
+          notifyAuthSessionExpired();
           redirectToSignin();
           return false;
         }
@@ -386,6 +436,11 @@ export const useMyListings = () => {
       });
 
       const rawJson: unknown = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        notifyAuthSessionExpired();
+        redirectToSignin();
+        return;
+      }
       if (!response.ok) {
         throw new Error(apiErrorMessage(rawJson, "Failed to fetch listings"));
       }
@@ -446,6 +501,11 @@ export const useMyBids = () => {
       });
 
       const rawJson: unknown = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        notifyAuthSessionExpired();
+        redirectToSignin();
+        return;
+      }
       if (!response.ok) {
         throw new Error(apiErrorMessage(rawJson, "Failed to fetch bids"));
       }
@@ -490,4 +550,48 @@ export const useMyBids = () => {
   }, [redirectToSignin]);
 
   return { userBids, loading, error, fetchMyBids };
+};
+
+// ─── useProfileStats ───────────────────────────────────────────────────────────
+
+export const useProfileStats = () => {
+  const [itemsSold, setItemsSold] = useState<number | null>(null);
+  const redirectToSignin = useSignInRedirect();
+
+  const fetchProfileStats = useCallback(async () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      redirectToSignin();
+      return;
+    }
+
+    try {
+      const response = await fetch(getApiUrl("/api/profile/stats"), {
+        method: "GET",
+        headers: authHeaders(token),
+      });
+
+      if (response.status === 401) {
+        notifyAuthSessionExpired();
+        redirectToSignin();
+        return;
+      }
+
+      const rawJson: unknown = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setItemsSold(null);
+        return;
+      }
+
+      if (isRecord(rawJson) && typeof rawJson.items_sold === "number") {
+        setItemsSold(rawJson.items_sold);
+      } else {
+        setItemsSold(null);
+      }
+    } catch {
+      setItemsSold(null);
+    }
+  }, [redirectToSignin]);
+
+  return { itemsSold, fetchProfileStats };
 };

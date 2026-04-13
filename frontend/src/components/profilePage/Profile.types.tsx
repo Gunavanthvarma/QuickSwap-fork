@@ -4,6 +4,8 @@ export interface ProfileResponse {
   first_name?: string;
   last_name?: string;
   mobile?: string;
+  /** ISO timestamp from `profiles.created_at` when returned by the API */
+  created_at?: string;
 }
 
 export interface MyListingApiItem {

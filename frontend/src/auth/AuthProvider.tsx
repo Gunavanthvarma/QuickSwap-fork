@@ -1,13 +1,27 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { AuthContext, readUserFromStorage, type AuthContextValue } from "./auth-context";
+import {
+  AuthContext,
+  AUTH_SESSION_EXPIRED_EVENT,
+  readUserFromStorage,
+  type AuthContextValue,
+} from "./auth-context";
 import { topListingsQueryKey } from "../components/landingPage/topListingsQuery";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState(() => readUserFromStorage());
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      setUser(null);
+      queryClient.removeQueries({ queryKey: topListingsQueryKey });
+    };
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, [queryClient]);
 
   const refreshUser = useCallback(() => {
     setUser(readUserFromStorage());
