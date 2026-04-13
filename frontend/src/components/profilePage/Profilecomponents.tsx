@@ -46,83 +46,116 @@ export function formatMemberSinceLabel(iso?: string): string | null {
   return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
+/** Full calendar date for profile copy, e.g. "April 9, 2025". */
+export function formatMemberSinceDetailed(iso?: string): string | null {
+  if (!iso?.trim()) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+export function profileDisplayInitials(user: ProfileResponse, displayName: string): string {
+  const f = user.first_name?.trim();
+  const l = user.last_name?.trim();
+  if (f && l) return (f[0] + l[0]).toUpperCase();
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 1 && parts[0].length >= 2) return parts[0].slice(0, 2).toUpperCase();
+  const em = user.email?.trim();
+  if (em && em.length >= 2) return em.slice(0, 2).toUpperCase();
+  return "?";
+}
+
+function compactUserId(id: string): string {
+  const t = id.replace(/-/g, "");
+  return t.length <= 10 ? id : `${t.slice(0, 8)}…`;
+}
+
 interface ProfileHeaderProps {
   user: ProfileResponse;
   displayName: string;
-  itemsSold: number | null;
-  memberSinceLabel: string | null;
+  onEditProfile?: () => void;
+  /** Compact activity donuts (listings / bids); keeps the header row visually balanced. */
+  activityCharts?: React.ReactNode;
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   user,
   displayName,
-  itemsSold,
-  memberSinceLabel,
-}) => (
-  <section className="profile-header" aria-labelledby="profile-display-name">
-    <div className="profile-header-content">
-      <div className="profile-avatar">
-        <img
-          src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=600"
-          alt=""
-          width={80}
-          height={80}
-          decoding="async"
-        />
-        <span className="profile-verified" aria-hidden>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </span>
-      </div>
-      <div className="profile-info">
-        <h1 id="profile-display-name">{displayName}</h1>
-        <p className="profile-username">{user.email}</p>
-      </div>
-      <div className="profile-stats">
-        <div className="stat">
-          <span className="stat-value">{itemsSold !== null ? itemsSold : "—"}</span>
-          <span className="stat-label">Auctions ended</span>
+  onEditProfile,
+  activityCharts,
+}) => {
+  const initials = profileDisplayInitials(user, displayName);
+  const memberDetail = formatMemberSinceDetailed(user.created_at);
+  const memberShort = formatMemberSinceLabel(user.created_at);
+  const mobile = user.mobile?.trim();
+  const location = user.location?.trim();
+  const bio = user.bio?.trim();
+
+  return (
+    <section className="profile-header" aria-labelledby="profile-display-name">
+      <div className="profile-header-top">
+        <div className="profile-header-content">
+          <div
+            className="profile-avatar profile-avatar--initials"
+            aria-hidden
+          >
+            <span className="profile-avatar-initials">{initials}</span>
+          </div>
+          <div className="profile-info">
+            <h1 id="profile-display-name">{displayName}</h1>
+            <p className="profile-username">{user.email}</p>
+          </div>
         </div>
-        {memberSinceLabel ? (
-          <div className="stat">
-            <span className="stat-value stat-value--compact">{memberSinceLabel}</span>
-            <span className="stat-label">Member since</span>
+        {activityCharts}
+        {onEditProfile ? (
+          <div className="profile-header-actions">
+            <button type="button" className="btn primary" onClick={onEditProfile}>
+              Edit profile
+            </button>
           </div>
         ) : null}
       </div>
-    </div>
-  </section>
-);
 
-// ─── ProfileAside (sidebar) ───────────────────────────────────────────────────
-
-export const ProfileAside: React.FC = () => {
-  const navigate = useNavigate();
-  return (
-    <aside className="profile-sidebar" aria-label="Profile shortcuts">
-      <div className="profile-sidebar-card">
-        <h2 className="profile-sidebar-title">Quick links</h2>
-        <nav className="profile-sidebar-nav">
-          <button type="button" className="profile-sidebar-link" onClick={() => navigate("/")}>
-            Browse home
-          </button>
-          <button type="button" className="profile-sidebar-link" onClick={() => navigate("/start_selling")}>
-            Start selling
-          </button>
-          <button type="button" className="profile-sidebar-link" onClick={() => navigate("/explore/trending")}>
-            Explore trending
-          </button>
-        </nav>
-      </div>
-      <div className="profile-sidebar-card">
-        <h2 className="profile-sidebar-title">Activity</h2>
-        <p className="profile-sidebar-text">
-          Use the notifications bell on the home bar for alerts. Your listings and bids are updated in the tabs
-          beside this panel.
-        </p>
-      </div>
-    </aside>
+      <dl className="profile-detail-grid">
+        <div className="profile-detail-item">
+          <dt>Member since</dt>
+          <dd>
+            {memberDetail ? (
+              <span className="profile-detail-primary">{memberDetail}</span>
+            ) : memberShort ? (
+              <span className="profile-detail-primary">{memberShort}</span>
+            ) : (
+              <span className="profile-detail-muted">Not available yet</span>
+            )}
+          </dd>
+        </div>
+        <div className="profile-detail-item">
+          <dt>Phone</dt>
+          <dd>{mobile ? mobile : <span className="profile-detail-muted">Not set</span>}</dd>
+        </div>
+        <div className="profile-detail-item">
+          <dt>Location</dt>
+          <dd>{location ? location : <span className="profile-detail-muted">Not set</span>}</dd>
+        </div>
+        <div className="profile-detail-item">
+          <dt>About</dt>
+          <dd>
+            {bio ? (
+              <p className="profile-bio-text">{bio}</p>
+            ) : (
+              <span className="profile-detail-muted">
+                Tell buyers who you are — open Edit profile to add a short bio.
+              </span>
+            )}
+          </dd>
+        </div>
+      </dl>
+    </section>
   );
 };
 
@@ -264,6 +297,31 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               required
               disabled={saving}
               onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))}
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="edit-location">Location</label>
+            <input
+              id="edit-location"
+              type="text"
+              placeholder="City, state, or country"
+              maxLength={120}
+              value={editForm.location}
+              disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, location: e.target.value }))}
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="edit-bio">Bio</label>
+            <textarea
+              id="edit-bio"
+              className="edit-profile-textarea"
+              rows={4}
+              placeholder="A few lines about you or what you sell"
+              maxLength={500}
+              value={editForm.bio}
+              disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value }))}
             />
           </div>
           <div className="settings-group">
@@ -764,3 +822,5 @@ export const ProfileUpdateSuccessBanner: React.FC<{
   visible?: boolean;
   onDismiss?: () => void;
 }> = () => null;
+
+export { ProfileHeaderCharts } from "./ProfileHeaderCharts";

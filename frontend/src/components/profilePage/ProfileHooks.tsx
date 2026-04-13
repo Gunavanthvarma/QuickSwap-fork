@@ -37,6 +37,10 @@ function mergeProfileFromApi(base: ProfileResponse, row: Record<string, unknown>
   if (email !== undefined) out.email = email;
   const created = pickStr("created_at");
   if (created !== undefined) out.created_at = created;
+  const bio = pickStr("bio");
+  if (bio !== undefined) out.bio = bio;
+  const location = pickStr("location");
+  if (location !== undefined) out.location = location;
   return out;
 }
 
@@ -51,6 +55,8 @@ export const useProfile = () => {
     first_name: "",
     last_name: "",
     mobile: "",
+    location: "",
+    bio: "",
   });
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -138,6 +144,8 @@ export const useProfile = () => {
         first_name: user.first_name || "",
         last_name: user.last_name || "",
         mobile: user.mobile || "",
+        location: user.location || "",
+        bio: user.bio || "",
       });
       setIsEditingProfile(true);
     }
@@ -320,6 +328,8 @@ export const useProfile = () => {
       first_name: editForm.first_name.trim(),
       last_name: editForm.last_name.trim(),
       mobile: editForm.mobile.trim(),
+      location: editForm.location.trim(),
+      bio: editForm.bio.trim(),
     };
 
     setProfileSaveError(null);
@@ -550,48 +560,4 @@ export const useMyBids = () => {
   }, [redirectToSignin]);
 
   return { userBids, loading, error, fetchMyBids };
-};
-
-// ─── useProfileStats ───────────────────────────────────────────────────────────
-
-export const useProfileStats = () => {
-  const [itemsSold, setItemsSold] = useState<number | null>(null);
-  const redirectToSignin = useSignInRedirect();
-
-  const fetchProfileStats = useCallback(async () => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      redirectToSignin();
-      return;
-    }
-
-    try {
-      const response = await fetch(getApiUrl("/api/profile/stats"), {
-        method: "GET",
-        headers: authHeaders(token),
-      });
-
-      if (response.status === 401) {
-        notifyAuthSessionExpired();
-        redirectToSignin();
-        return;
-      }
-
-      const rawJson: unknown = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setItemsSold(null);
-        return;
-      }
-
-      if (isRecord(rawJson) && typeof rawJson.items_sold === "number") {
-        setItemsSold(rawJson.items_sold);
-      } else {
-        setItemsSold(null);
-      }
-    } catch {
-      setItemsSold(null);
-    }
-  }, [redirectToSignin]);
-
-  return { itemsSold, fetchProfileStats };
 };

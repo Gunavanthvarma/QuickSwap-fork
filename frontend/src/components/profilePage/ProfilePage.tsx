@@ -4,12 +4,11 @@ import "./profile_page.css";
 import "../landingPage/loggedin_landing_page.css";
 
 import type { ActiveTab } from "./Profile.types";
-import { useProfile, useMyListings, useMyBids, useProfileStats } from "./ProfileHooks";
+import { useProfile, useMyListings, useMyBids } from "./ProfileHooks";
 import {
   ProfileNavbar,
-  ProfileAside,
   ProfileHeader,
-  formatMemberSinceLabel,
+  ProfileHeaderCharts,
   ProfileTabs,
   EditProfileModal,
   UpdatePasswordModal,
@@ -46,19 +45,13 @@ const ProfilePage: React.FC = () => {
 
   const { userListings, loading: listingsLoading, error: listingsError, fetchMyListings } = useMyListings();
   const { userBids, loading: bidsLoading, error: bidsError, fetchMyBids } = useMyBids();
-  const { itemsSold, fetchProfileStats } = useProfileStats();
 
   useEffect(() => {
     if (user) {
       void fetchMyListings();
+      void fetchMyBids();
     }
-  }, [user, fetchMyListings]);
-
-  useEffect(() => {
-    if (user && !loading) {
-      void fetchProfileStats();
-    }
-  }, [user, loading, fetchProfileStats]);
+  }, [user, fetchMyListings, fetchMyBids]);
 
   useEffect(() => {
     if (activeTab !== "bids") return;
@@ -142,13 +135,19 @@ const ProfilePage: React.FC = () => {
 
       <ProfileNavbar />
       <div className="profile-shell">
-        <ProfileAside />
         <div className="profile-main-column">
           <ProfileHeader
             user={user}
             displayName={displayName}
-            itemsSold={itemsSold}
-            memberSinceLabel={formatMemberSinceLabel(user.created_at)}
+            onEditProfile={handleEditOpen}
+            activityCharts={
+              <ProfileHeaderCharts
+                listings={userListings}
+                bids={userBids}
+                listingsLoading={listingsLoading}
+                bidsLoading={bidsLoading}
+              />
+            }
           />
           <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
