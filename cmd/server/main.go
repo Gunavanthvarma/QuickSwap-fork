@@ -9,7 +9,7 @@ import (
 	"github.com/quickswap/quickswap/internal/auth"
 	"github.com/quickswap/quickswap/internal/db"
 	"github.com/quickswap/quickswap/internal/handlers"
-
+	"github.com/quickswap/quickswap/internal/worker"
 )
 
 func main() {
@@ -44,6 +44,9 @@ func main() {
 
 	_ = pgPool      // Keep for future use in handlers
 	_ = redisClient // Keep for future use in handlers
+
+	// Start Auction Background Worker
+	go worker.StartAuctionSettlementWorker(ctx, redisClient, pgPool)
 
 	// Static files (login page)
 	fs := http.FileServer(http.Dir("frontend"))
