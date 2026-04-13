@@ -38,6 +38,31 @@ export function readUserFromStorage(): ProfileResponse | null {
   }
 }
 
+/** Clock skew buffer (ms) before stored expiry — treat as expired slightly early. */
+const ACCESS_TOKEN_EXPIRY_SKEW_MS = 30_000;
+
+/**
+ * Returns the cached user only when access token exists and is not past client-side expiry.
+ * If the user cache exists but the session is invalid, clears auth storage (same as logout keys).
+ */
+export function getValidUserFromStorage(): ProfileResponse | null {
+  if (typeof window === "undefined") return null;
+  const token = localStorage.getItem("accessToken");
+  const user = readUserFromStorage();
+  if (!token || !user) return null;
+
+  const expiryRaw = localStorage.getItem("accessTokenExpiry");
+  if (expiryRaw) {
+    const ms = Number(expiryRaw);
+    if (Number.isFinite(ms) && Date.now() >= ms - ACCESS_TOKEN_EXPIRY_SKEW_MS) {
+      clearAuthStorage();
+      return null;
+    }
+  }
+
+  return user;
+}
+
 export type AuthContextValue = {
   user: ProfileResponse | null;
   isAuthenticated: boolean;
