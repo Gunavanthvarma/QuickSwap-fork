@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/useAuth";
 import { useSignInRedirect } from "../../auth/useSignInRedirect";
 import {
   fetchNotifications,
@@ -17,6 +18,7 @@ function formatNotifTime(iso: string): string {
 }
 
 export const NotificationsBell: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const redirectToSignin = useSignInRedirect();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -60,6 +62,7 @@ export const NotificationsBell: React.FC = () => {
   }, [redirectToSignin, refreshCount]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void refreshCount();
     const id = window.setInterval(() => void refreshCount(), 60_000);
     const onVis = () => void refreshCount();
@@ -68,12 +71,18 @@ export const NotificationsBell: React.FC = () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [refreshCount]);
+  }, [refreshCount, isAuthenticated]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isAuthenticated) {
+      setOpen(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!open || !isAuthenticated) return;
     void loadList();
-  }, [open, loadList]);
+  }, [open, loadList, isAuthenticated]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,6 +140,10 @@ export const NotificationsBell: React.FC = () => {
       navigate(`/auction/${encodeURIComponent(n.listing_id)}`);
     }
   };
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="notif-bell-wrap">

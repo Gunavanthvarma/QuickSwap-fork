@@ -4,6 +4,7 @@ import { useAuth } from "../../auth/useAuth";
 import "./landing_page.css";
 import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import {
   mapTopListingsToStripItems,
   useTopListingsQuery,
@@ -52,6 +53,7 @@ const LoggedInLandingPage: React.FC = () => {
           <button type="button" className="btn primary" onClick={handleStartSelling}>
             Start selling
           </button>
+          <NotificationsBell />
           {isAuthenticated && (
             <>
               <button

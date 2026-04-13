@@ -81,10 +81,10 @@ const LandingPage = () => {
               </button>
             </>
           ) : (
-          <button type="button" className="btn ghost" onClick={() => navigate("/signin")}>
-            Sign in
-          </button>
-        )}
+            <button type="button" className="btn ghost" onClick={() => navigate("/signin")}>
+              Sign in
+            </button>
+          )}
         </div>
       </header>
 
