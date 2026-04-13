@@ -36,6 +36,7 @@ func TestNewRouter(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 // MockRow implements pgx.Row
 type MockRow struct {
 	ScanFunc func(dest ...any) error
@@ -84,6 +85,40 @@ func (m *MockDBQuerier) QueryRow(ctx context.Context, sql string, args ...any) p
 	return &MockRow{}
 }
 
+||||||| parent of af79120 (Implemented unit tests for Sprint-3)
+=======
+// MockRow implements pgx.Row
+type MockRow struct {
+	ScanFunc func(dest ...any) error
+}
+
+func (m *MockRow) Scan(dest ...any) error {
+	if m.ScanFunc != nil {
+		return m.ScanFunc(dest...)
+	}
+	return nil
+}
+
+type MockDBQuerier struct {
+	ExecFunc     func(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	QueryRowFunc func(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func (m *MockDBQuerier) Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error) {
+	if m.ExecFunc != nil {
+		return m.ExecFunc(ctx, sql, arguments...)
+	}
+	return pgconn.CommandTag{}, nil
+}
+
+func (m *MockDBQuerier) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	if m.QueryRowFunc != nil {
+		return m.QueryRowFunc(ctx, sql, args...)
+	}
+	return &MockRow{}
+}
+
+>>>>>>> af79120 (Implemented unit tests for Sprint-3)
 func TestBidHandler(t *testing.T) {
 	ts := setupHandlersMockServer()
 	defer ts.Close()
