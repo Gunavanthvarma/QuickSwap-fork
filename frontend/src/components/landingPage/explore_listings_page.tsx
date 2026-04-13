@@ -84,7 +84,14 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
                     ctaLabel: "Start selling",
                     onCta: () => navigate("/start_selling"),
                   }
-                : undefined
+                : {
+                    illustration: "latest",
+                    title: "Nothing trending yet",
+                    description:
+                      "There aren’t enough active bids to rank a trending list right now. Try ending soon or latest, or start a new auction.",
+                    ctaLabel: "Browse ending soon",
+                    onCta: () => navigate("/explore/ending-soon"),
+                  }
           }
         />
       )}
