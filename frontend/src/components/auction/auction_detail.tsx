@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { apiErrorMessage, authHeaders, getApiUrl, getSSEUrl, isFetchAborted, isRecord } from "../../lib/api";
@@ -81,6 +81,10 @@ const AuctionDetail: React.FC = () => {
   const [bidAmount, setBidAmount] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasJoinedLocal, setHasJoinedLocal] = useState(false);
+  const [bidSubmitting, setBidSubmitting] = useState(false);
+  const [bidError, setBidError] = useState<string | null>(null);
+  const bidInputRef = useRef<HTMLInputElement | null>(null);
 
   /** Live bid row from SSE (`/api/ws/auctions/:id`). */
   const [liveBid, setLiveBid] = useState<BidUpdatePayload | null>(null);
@@ -141,6 +145,9 @@ const AuctionDetail: React.FC = () => {
         setAuctionEndMs(parseAuctionEndMsFromListing(normalized.auction_end_time));
         setServerSkewMs(null);
         setAuctionEndedByServer(false);
+        setHasJoinedLocal(normalized.has_joined);
+        setBidError(null);
+        setBidAmount("");
       } catch (err: unknown) {
         if (isFetchAborted(err)) return;
         setError(err instanceof Error ? err.message : "Failed to fetch listing");
@@ -271,6 +278,8 @@ const AuctionDetail: React.FC = () => {
     brand,
   } = listing;
 
+  const hasJoinedAuction = has_joined || hasJoinedLocal;
+
   const displayCurrentBid = liveBid != null ? liveBid.current_bid : current_bid;
   const displayTotalBids = total_bids + liveBidEventCount;
   const displayIsHighestBidder =
@@ -299,11 +308,70 @@ const AuctionDetail: React.FC = () => {
   let primaryCtaLabel = "Join auction";
   if (is_seller) {
     primaryCtaLabel = "Manage listing";
-  } else if (has_joined && displayIsHighestBidder) {
+  } else if (hasJoinedAuction && displayIsHighestBidder) {
     primaryCtaLabel = "You are leading - raise max bid";
-  } else if (has_joined && !displayIsHighestBidder) {
+  } else if (hasJoinedAuction && !displayIsHighestBidder) {
     primaryCtaLabel = "Place higher bid";
   }
+
+  const handlePrimaryAction = () => {
+    if (!canBid || is_seller) return;
+    if (!hasJoinedAuction) {
+      setHasJoinedLocal(true);
+      setBidError(null);
+      window.setTimeout(() => bidInputRef.current?.focus(), 0);
+      return;
+    }
+    bidInputRef.current?.focus();
+  };
+
+  const handlePlaceBid = async () => {
+    if (!canBid || bidSubmitting) return;
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
+
+    const amount = Number.parseFloat(bidAmount);
+    if (!Number.isFinite(amount)) {
+      setBidError("Enter a valid bid amount.");
+      return;
+    }
+    const minimumNextBid = Math.ceil(displayCurrentBid + 1);
+    if (amount < minimumNextBid) {
+      setBidError(`Bid must be at least ${formatCurrency(minimumNextBid)}.`);
+      return;
+    }
+
+    setBidSubmitting(true);
+    setBidError(null);
+    try {
+      const response = await fetch(getApiUrl(`/api/auctions/${encodeURIComponent(listingId)}/bid`), {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ amount }),
+      });
+      const raw: unknown = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(apiErrorMessage(raw, "Failed to place bid"));
+      }
+
+      setBidAmount("");
+      setHasJoinedLocal(true);
+      if (user?.id) {
+        setLiveBid({
+          auction_id: listingId,
+          current_bid: amount,
+          highest_bidder: user.id,
+        });
+      }
+    } catch (err: unknown) {
+      setBidError(err instanceof Error ? err.message : "Failed to place bid");
+    } finally {
+      setBidSubmitting(false);
+    }
+  };
 
   const thumbLabel = (index: number) =>
     `Show image ${index + 1} of ${images.length} for ${title}`;
@@ -403,7 +471,7 @@ const AuctionDetail: React.FC = () => {
                 <span className="auction-price" aria-live="polite">
                   {formatCurrency(displayCurrentBid)}
                 </span>
-                {!is_seller && has_joined && (
+                {!is_seller && hasJoinedAuction && (
                   <span
                     className={
                       "auction-badge " +
@@ -421,7 +489,7 @@ const AuctionDetail: React.FC = () => {
               <span className="auction-value">{formatCurrency(starting_bid)}</span>
             </div>
 
-            {!is_seller && has_joined && (
+            {!is_seller && hasJoinedAuction && (
               <div className="auction-last-bid">
                 <span className="auction-label">Your last bid</span>
                 <span className="auction-value">
@@ -445,11 +513,12 @@ const AuctionDetail: React.FC = () => {
                 className="auction-btn-primary"
                 disabled={!canBid}
                 aria-disabled={!canBid}
+                onClick={handlePrimaryAction}
               >
                 {canBid ? primaryCtaLabel : "Auction ended"}
               </button>
 
-              {has_joined && (
+              {hasJoinedAuction && (
                 <div className="auction-bid-input">
                   <label className="auction-label" htmlFor="bid-amount">
                     Enter your bid
@@ -460,15 +529,28 @@ const AuctionDetail: React.FC = () => {
                       id="bid-amount"
                       type="number"
                       className="auction-bid-field"
+                      ref={bidInputRef}
                       value={bidAmount}
                       onChange={(event) => setBidAmount(event.target.value)}
                       placeholder={String(Math.ceil(displayCurrentBid + 5))}
                       disabled={!canBid}
                     />
-                    <button type="button" className="auction-btn-ghost" disabled>
-                      Bid
+                    <button
+                      type="button"
+                      className="auction-btn-ghost"
+                      disabled={!canBid || bidSubmitting}
+                      onClick={() => {
+                        void handlePlaceBid();
+                      }}
+                    >
+                      {bidSubmitting ? "Bidding..." : "Bid"}
                     </button>
                   </div>
+                  {bidError && (
+                    <p className="auction-hint" role="alert">
+                      {bidError}
+                    </p>
+                  )}
                   {!displayIsHighestBidder && canBid && (
                     <p className="auction-hint">
                       You are currently outbid. Try at least {formatCurrency(Math.ceil(displayCurrentBid + 5))} to take the lead.
@@ -480,12 +562,12 @@ const AuctionDetail: React.FC = () => {
                 </div>
               )}
 
-              {!has_joined && canBid && (
+              {!hasJoinedAuction && canBid && (
                 <p className="auction-hint">
                   Join the auction to place your first bid and get live updates when you are outbid.
                 </p>
               )}
-              {!has_joined && !canBid && (
+              {!hasJoinedAuction && !canBid && (
                 <p className="auction-hint">
                   This auction has ended. Refresh later to see final settlement details.
                 </p>
