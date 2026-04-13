@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/quickswap/quickswap/internal/auth"
+	"github.com/redis/go-redis/v9"
 
 	listing "github.com/quickswap/quickswap/internal/listings"
 )
 
-func createListingHandler(authClient *auth.Client) http.HandlerFunc {
+func createListingHandler(authClient *auth.Client, rdb *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -127,6 +128,12 @@ func createListingHandler(authClient *auth.Client) http.HandlerFunc {
 			respondError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		// Track active auction in Redis
+		rdb.ZAdd(r.Context(), "active_auctions", redis.Z{
+			Score:  float64(auctionEnd.Unix()),
+			Member: id,
+		})
 
 		respondJSON(w, map[string]interface{}{
 			"listing_id": id,
