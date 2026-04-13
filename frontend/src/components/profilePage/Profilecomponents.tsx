@@ -70,11 +70,6 @@ export function profileDisplayInitials(user: ProfileResponse, displayName: strin
   return "?";
 }
 
-function compactUserId(id: string): string {
-  const t = id.replace(/-/g, "");
-  return t.length <= 10 ? id : `${t.slice(0, 8)}…`;
-}
-
 interface ProfileHeaderProps {
   user: ProfileResponse;
   displayName: string;
