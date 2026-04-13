@@ -487,6 +487,12 @@ body {
   color: white;
 }
 
+.profile-content {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 /* Listings Grid */
 .profile-listings-empty,
 .profile-bids-empty {
@@ -680,12 +686,14 @@ body {
   width: 100%;
 }
 
-/* Settings */
+/* Settings — same horizontal span as listings/bids (full profile-main-column width) */
 .settings-container {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 720px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .settings-section-header {
