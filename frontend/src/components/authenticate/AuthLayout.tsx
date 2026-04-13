@@ -5,7 +5,6 @@ import {
   Paper,
   Typography,
   Link,
-  IconButton,
 } from '@mui/material';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import './authenticate.css';

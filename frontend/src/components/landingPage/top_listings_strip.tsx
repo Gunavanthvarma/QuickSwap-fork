@@ -224,7 +224,12 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
       <div className="strip-header">
         <h2>{title}</h2>
         {onShowAll && !isEmpty && (
-          <button className="strip-view-all" onClick={onShowAll}>
+          <button
+            type="button"
+            className="strip-view-all"
+            onClick={onShowAll}
+            aria-label={`Show all ${title}`}
+          >
             Show all
           </button>
         )}
@@ -243,7 +248,14 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
             onClick={() => onViewItem(item.id)}
           >
             <div className="strip-image-wrap">
-              <img src={item.image} alt={item.name} />
+              <img
+                src={item.image}
+                alt={item.name}
+                width={220}
+                height={147}
+                loading="lazy"
+                decoding="async"
+              />
               <span className="product-tag">{item.tag}</span>
             </div>
             <div className="strip-body">

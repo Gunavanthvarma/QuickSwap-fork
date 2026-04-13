@@ -1,142 +1,40 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import "../landingPage/loggedin_landing_page.css";
+import { useAuth } from "../../auth/useAuth";
+import "./landing_page.css";
+import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
-import type { StripItem } from "./top_listings_strip";
 import {
-  clearLocalAuth,
-  fetchAuthMe,
-  getApiUrl,
-  postAuthLogout,
-} from "../../utils/authApi";
-
-interface TopListingApiItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  image: string;
-  current_bid: number;
-  auction_start_time: string;
-  auction_end_time: string;
-}
-
-interface TopListingsResponse {
-  ending_soon: TopListingApiItem[] | null;
-  starting_soon: TopListingApiItem[] | null;
-  trending_now: TopListingApiItem[] | null;
-}
+  mapTopListingsToStripItems,
+  useTopListingsQuery,
+} from "./topListingsQuery";
 
 const LoggedInLandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const isLoggedIn = !!localStorage.getItem("user");
-  const [trendingItems, setTrendingItems] = useState<StripItem[]>([]);
-  const [endingSoonItems, setEndingSoonItems] = useState<StripItem[]>([]);
-  const [latestItems, setLatestItems] = useState<StripItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [logoutBusy, setLogoutBusy] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
+  const { data, isPending, isError, error } = useTopListingsQuery();
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(amount || 0);
+  const trendingItems = useMemo(
+    () => (data ? mapTopListingsToStripItems(data.trending_now, "Trending") : []),
+    [data],
+  );
+  const endingSoonItems = useMemo(
+    () => (data ? mapTopListingsToStripItems(data.ending_soon, "Ending soon") : []),
+    [data],
+  );
+  const latestItems = useMemo(
+    () => (data ? mapTopListingsToStripItems(data.starting_soon, "Latest") : []),
+    [data],
+  );
 
-  const mapToStripItems = (items: TopListingApiItem[] | null, tag: string): StripItem[] => {
-    if (!Array.isArray(items)) return [];
+  const fetchError = isError ? (error instanceof Error ? error.message : "Failed to fetch top listings") : null;
 
-    return items.map((item) => ({
-      id: item.id,
-      name: item.subtitle ? `${item.title} · ${item.subtitle}` : item.title,
-      price: `Current bid: ${formatCurrency(item.current_bid)}`,
-      image: item.image,
-      tag,
-    }));
-  };
-
-  useEffect(() => {
-    const fetchTopListings = async () => {
-      setLoading(true);
-      setFetchError(null);
-
-      try {
-        const token = localStorage.getItem("accessToken");
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-
-        const response = await fetch(getApiUrl("/api/toplistings"), {
-          method: "GET",
-          headers,
-        });
-
-        const payload: TopListingsResponse = await response.json().catch(() => ({
-          ending_soon: null,
-          starting_soon: null,
-          trending_now: null,
-        }));
-
-        if (!response.ok) {
-          const message = (payload as any)?.error || (payload as any)?.message || "Failed to fetch top listings";
-          throw new Error(message);
-        }
-
-        setTrendingItems(mapToStripItems(payload.trending_now, "Trending"));
-        setEndingSoonItems(mapToStripItems(payload.ending_soon, "Ending soon"));
-        setLatestItems(mapToStripItems(payload.starting_soon, "Latest"));
-      } catch (err: unknown) {
-        setFetchError(err instanceof Error ? err.message : "Failed to fetch top listings");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTopListings();
-  }, []);
-
-  /** Validate session with GET /api/auth/me (token may be invalid even if user blob exists). */
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    const user = localStorage.getItem("user");
-    if (!user) return;
-    if (!token) {
-      clearLocalAuth();
-      window.location.href = "/signin";
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        await fetchAuthMe(token);
-      } catch {
-        if (!cancelled) {
-          clearLocalAuth();
-          window.location.href = "/signin";
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleLogout = async () => {
-    if (logoutBusy) return;
-    const token = localStorage.getItem("accessToken");
-    setLogoutBusy(true);
-    try {
-      if (token) await postAuthLogout(token);
-    } finally {
-      clearLocalAuth();
-      setLogoutBusy(false);
-      window.location.href = "/";
-    }
+  const handleLogout = () => {
+    logout();
   };
 
   const handleStartSelling = () => {
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
       navigate("/signin");
       return;
     }
@@ -145,42 +43,33 @@ const LoggedInLandingPage: React.FC = () => {
 
   return (
     <div className="landing">
-      {/* Navbar – identical to your current one */}
       <header className="navbar">
         <div className="navbar-logo">
           <span className="logo-text">Quickswap</span>
         </div>
-        <nav className="navbar-links">
-          {/* remove “How it works” / “Live auctions” for logged‑in view */}
-          {/* You can add “Home”, “Explore”, etc. later if you want */}
-        </nav>
+        <nav className="navbar-links" aria-label="Primary" />
         <div className="navbar-actions">
-          <button className="btn primary" onClick={handleStartSelling}>
+          <button type="button" className="btn primary" onClick={handleStartSelling}>
             Start selling
           </button>
-          {isLoggedIn && (
+          {isAuthenticated && (
             <>
               <button
+                type="button"
                 className="btn ghost"
                 onClick={() => navigate("/profile")}
               >
                 Profile
               </button>
-              <button
-                className="btn ghost"
-                onClick={() => {
-                  void handleLogout();
-                }}
-                disabled={logoutBusy}
-              >
-                {logoutBusy ? "Logging out…" : "Logout"}
+              <button type="button" className="btn ghost" onClick={handleLogout}>
+                Logout
               </button>
             </>
           )}
         </div>
       </header>
 
-      {/* Hero strip can stay, or you can shrink it later */}
+      <main id="main-content">
       <section className="hero">
         <div className="hero-content">
           <span className="hero-badge">Live now · Tailored auctions</span>
@@ -190,10 +79,11 @@ const LoggedInLandingPage: React.FC = () => {
             about to end — all in one place.
           </p>
           <div className="hero-actions">
-            <button className="btn primary" onClick={handleStartSelling}>
+            <button type="button" className="btn primary" onClick={handleStartSelling}>
               Start a new auction
             </button>
             <button
+              type="button"
               className="btn ghost"
               onClick={() => navigate("/profile")}
             >
@@ -202,11 +92,14 @@ const LoggedInLandingPage: React.FC = () => {
           </div>
         </div>
         <div className="hero-visual">
-          {/* you can reuse your existing hero visuals here */}
           <div className="hero-card main">
             <img
               src="https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=800"
-              alt="Dashboard preview"
+              alt="People collaborating at a laptop, representing your QuickSwap dashboard activity"
+              width={800}
+              height={533}
+              decoding="async"
+              fetchPriority="high"
             />
             <div className="hero-tag">
               3 auctions ending in the next hour
@@ -215,10 +108,9 @@ const LoggedInLandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Horizontal strips */}
-      {loading && <section className="strip-section">Loading auctions...</section>}
-      {!loading && fetchError && <section className="strip-section">{fetchError}</section>}
-      {!loading && !fetchError && (
+      {isPending && <section className="strip-section">Loading auctions...</section>}
+      {!isPending && fetchError && <section className="strip-section">{fetchError}</section>}
+      {!isPending && !fetchError && data && (
         <>
           <TopListingsStrip
             title="Trending now"
@@ -257,7 +149,8 @@ const LoggedInLandingPage: React.FC = () => {
         </>
       )}
 
-      {/* Footer can stay the same if you like */}
+      </main>
+
       <footer className="footer">
         <span>© {new Date().getFullYear()} Quickswap. All rights reserved.</span>
         <span className="footer-links">

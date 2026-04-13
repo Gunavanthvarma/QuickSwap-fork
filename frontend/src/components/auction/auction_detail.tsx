@@ -1,11 +1,44 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import "./auction_detail.css";
+import { useAuth } from "../../auth/useAuth";
+import { apiErrorMessage, authHeaders, getApiUrl, getSSEUrl, isFetchAborted, isRecord } from "../../lib/api";
+import { formatCurrency } from "../../lib/format";
 import {
-  formatTimeRemainingFromBackendString,
-  formatTimeRemainingFromEnd,
-} from "../../utils/formatTimeRemaining";
+  computeServerSkewMs,
+  formatCountdown,
+  parseAuctionEndMsFromListing,
+  parseTimeSyncPayload,
+  remainingUntilEndMs,
+} from "./auctionCountdown";
+import "./auction_detail.css";
+
+/** Payload from Redis → SSE `bid_update` events (see backend `ProcessBidWithTx`). */
+interface BidUpdatePayload {
+  auction_id: string;
+  current_bid: number;
+  highest_bidder: string;
+}
+
+function parseBidUpdatePayload(raw: string): BidUpdatePayload | null {
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!isRecord(v)) return null;
+    const auction_id = v.auction_id;
+    const current_bid = v.current_bid;
+    const highest_bidder = v.highest_bidder;
+    if (typeof auction_id !== "string" || typeof highest_bidder !== "string") return null;
+    const bid =
+      typeof current_bid === "number"
+        ? current_bid
+        : typeof current_bid === "string"
+          ? Number.parseFloat(current_bid)
+          : NaN;
+    if (!Number.isFinite(bid)) return null;
+    return { auction_id, current_bid: bid, highest_bidder };
+  } catch {
+    return null;
+  }
+}
 
 interface SingleListingResponse {
   listing_id: string;
@@ -32,32 +65,9 @@ interface SingleListingResponse {
   brand?: string;
 }
 
-const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount || 0);
-
-const getApiUrl = (path: string): string => {
-  const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-  const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-  return apiBase ? `${apiBase.replace(/\/$/, "")}${path}` : path;
-};
-
-function currentUserIdFromStorage(): string | null {
-  try {
-    const raw = localStorage.getItem("user");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { id?: string };
-    return typeof parsed?.id === "string" ? parsed.id : null;
-  } catch {
-    return null;
-  }
-}
-
 const AuctionDetail: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { id: paramId } = useParams();
   const [searchParams] = useSearchParams();
 
@@ -71,11 +81,23 @@ const AuctionDetail: React.FC = () => {
   const [bidAmount, setBidAmount] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteUiMessage, setDeleteUiMessage] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+
+  /** Live bid row from SSE (`/api/ws/auctions/:id`). */
+  const [liveBid, setLiveBid] = useState<BidUpdatePayload | null>(null);
+  const [liveBidEventCount, setLiveBidEventCount] = useState(0);
+  const [sseStatus, setSseStatus] = useState<"idle" | "connecting" | "open" | "closed">("idle");
+
+  /** When backend sends SSE `time_sync` (optional until backend ships it). */
+  const [serverSkewMs, setServerSkewMs] = useState<number | null>(null);
+  /** Prefer Unix end from `time_sync`; fallback computed from listing.auction_end_time. */
+  const [auctionEndMs, setAuctionEndMs] = useState<number | null>(null);
+  const [auctionEndedByServer, setAuctionEndedByServer] = useState(false);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    const ac = new AbortController();
+    const { signal } = ac;
+
     const fetchListing = async () => {
       if (!listingId) {
         setError("Listing ID is missing.");
@@ -85,69 +107,132 @@ const AuctionDetail: React.FC = () => {
 
       setLoading(true);
       setError(null);
+      setListing(null);
 
       try {
         const token = localStorage.getItem("accessToken");
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-
         const response = await fetch(getApiUrl(`/api/listing?id=${encodeURIComponent(listingId)}`), {
           method: "GET",
-          headers,
+          headers: authHeaders(token),
+          signal,
         });
 
-        const payload = await response.json().catch(() => ({}));
+        const rawJson: unknown = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(payload?.error || payload?.message || "Failed to fetch listing");
+          throw new Error(apiErrorMessage(rawJson, "Failed to fetch listing"));
         }
 
+        if (!isRecord(rawJson)) {
+          throw new Error("Invalid listing response");
+        }
+
+        const imagesRaw = rawJson.images;
+        const images = Array.isArray(imagesRaw)
+          ? imagesRaw.filter((img): img is string => typeof img === "string")
+          : [];
+
         const normalized: SingleListingResponse = {
-          ...payload,
-          images: Array.isArray(payload.images)
-            ? payload.images.filter((img: unknown) => typeof img === "string")
-            : [],
+          ...(rawJson as unknown as SingleListingResponse),
+          images,
         };
 
         setListing(normalized);
         setSelectedImage(normalized.image || normalized.images[0] || "");
+        setAuctionEndMs(parseAuctionEndMsFromListing(normalized.auction_end_time));
+        setServerSkewMs(null);
+        setAuctionEndedByServer(false);
       } catch (err: unknown) {
+        if (isFetchAborted(err)) return;
         setError(err instanceof Error ? err.message : "Failed to fetch listing");
         setListing(null);
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchListing();
+    void fetchListing();
+    return () => ac.abort();
   }, [listingId]);
 
+  // Real-time: SSE GET /api/ws/auctions/{id} — bid_update (today); optional time_sync + auction_ended when backend adds them.
   useEffect(() => {
-    if (!listing || listing.status.toLowerCase() !== "active") return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    setLiveBid(null);
+    setLiveBidEventCount(0);
+    setSseStatus("idle");
+
+    if (!listingId || !listing) return;
+    if (listing.listing_id !== listingId) return;
+    if (listing.status.toLowerCase() !== "active") return;
+
+    let es: EventSource | null = null;
+    const url = getSSEUrl(`/api/ws/auctions/${encodeURIComponent(listingId)}`);
+    setSseStatus("connecting");
+    es = new EventSource(url);
+
+    es.addEventListener("open", () => {
+      setSseStatus("open");
+    });
+
+    es.addEventListener("time_sync", (ev: MessageEvent) => {
+      const sync = parseTimeSyncPayload(String(ev.data));
+      if (!sync || sync.auction_id !== listingId) return;
+      const skew = computeServerSkewMs(sync.server_time, Date.now());
+      if (skew != null) setServerSkewMs(skew);
+      if (sync.auction_end_unix != null) {
+        setAuctionEndMs(sync.auction_end_unix * 1000);
+      }
+    });
+
+    es.addEventListener("auction_ended", (ev: MessageEvent) => {
+      try {
+        const raw = JSON.parse(String(ev.data)) as unknown;
+        if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+          const aid = (raw as { auction_id?: string }).auction_id;
+          if (typeof aid === "string" && aid !== listingId) return;
+        }
+      } catch {
+        /* accept event without body */
+      }
+      setAuctionEndedByServer(true);
+    });
+
+    es.addEventListener("bid_update", (ev: MessageEvent) => {
+      const payload = parseBidUpdatePayload(String(ev.data));
+      if (!payload) return;
+      setLiveBid(payload);
+      setLiveBidEventCount((n) => n + 1);
+    });
+
+    es.addEventListener("error", () => {
+      setSseStatus("closed");
+      es?.close();
+      es = null;
+    });
+
+    return () => {
+      es?.close();
+      setSseStatus("closed");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reconnect when auction id or active status changes, not on every listing field update
+  }, [listingId, listing?.listing_id, listing?.status]);
+
+  // Tick every second for countdown while auction is active on this page.
+  useEffect(() => {
+    if (!listing || listing.status.toLowerCase() !== "active" || auctionEndedByServer) return;
+    const id = window.setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
     return () => window.clearInterval(id);
-  }, [listing]);
-
-  useEffect(() => {
-    if (listing && listing.status.toLowerCase() !== "active") {
-      setDeleteConfirmOpen(false);
-    }
-  }, [listing]);
-
-  const isListingOwner = useMemo(() => {
-    if (!listing) return false;
-    if (listing.is_seller) return true;
-    const me = currentUserIdFromStorage();
-    return Boolean(me && listing.seller_id && me === listing.seller_id);
-  }, [listing]);
+  }, [listing, auctionEndedByServer]);
 
   if (loading) {
     return (
       <div className="auction-page">
-        <p>Loading auction details...</p>
+        <main id="main-content">
+          <p>Loading auction details...</p>
+        </main>
       </div>
     );
   }
@@ -155,10 +240,12 @@ const AuctionDetail: React.FC = () => {
   if (error || !listing) {
     return (
       <div className="auction-page">
-        <button className="auction-back" onClick={() => navigate(-1)}>
+        <button type="button" className="auction-back" onClick={() => navigate(-1)}>
           Back
         </button>
-        <p>{error || "Listing not found."}</p>
+        <main id="main-content">
+          <p>{error || "Listing not found."}</p>
+        </main>
       </div>
     );
   }
@@ -169,13 +256,13 @@ const AuctionDetail: React.FC = () => {
     description,
     images,
     seller_name,
-    seller_id,
     current_bid,
     starting_bid,
     buy_now_price,
     total_bids,
+    time_left,
     status,
-    auction_end_time,
+    is_seller,
     has_joined,
     is_highest_bidder,
     caller_last_bid,
@@ -184,91 +271,78 @@ const AuctionDetail: React.FC = () => {
     brand,
   } = listing;
 
-  const timeLeftDisplay = auction_end_time
-    ? formatTimeRemainingFromEnd(auction_end_time, now)
-    : formatTimeRemainingFromBackendString(listing.time_left);
+  const displayCurrentBid = liveBid != null ? liveBid.current_bid : current_bid;
+  const displayTotalBids = total_bids + liveBidEventCount;
+  const displayIsHighestBidder =
+    liveBid != null && user?.id ? user.id === liveBid.highest_bidder : is_highest_bidder;
 
-  const listingIsActive = status.toLowerCase() === "active";
-  const canBid = !isListingOwner && listingIsActive;
+  const endMs = auctionEndMs ?? parseAuctionEndMsFromListing(listing.auction_end_time);
+  const remainingMs =
+    endMs != null
+      ? remainingUntilEndMs(endMs, Date.now() + tick * 0, serverSkewMs)
+      : null;
+  const clientCountdownEnded = remainingMs != null && remainingMs <= 0;
+  const auctionInactive =
+    status.toLowerCase() !== "active" || auctionEndedByServer || clientCountdownEnded;
+
+  const displayTimeLeft =
+    remainingMs != null && !auctionEndedByServer
+      ? formatCountdown(remainingMs)
+      : auctionEndedByServer || clientCountdownEnded
+        ? "Ended"
+        : time_left;
+
+  const auctionStatusLabel = auctionInactive ? "Ended" : "Active";
+  const canBid = !is_seller && !auctionInactive;
 
   // Decide primary call-to-action text based on backend participation state.
   let primaryCtaLabel = "Join auction";
-  if (isListingOwner) {
+  if (is_seller) {
     primaryCtaLabel = "Manage listing";
-  } else if (has_joined && is_highest_bidder) {
+  } else if (has_joined && displayIsHighestBidder) {
     primaryCtaLabel = "You are leading - raise max bid";
-  } else if (has_joined && !is_highest_bidder) {
+  } else if (has_joined && !displayIsHighestBidder) {
     primaryCtaLabel = "Place higher bid";
   }
 
+  const thumbLabel = (index: number) =>
+    `Show image ${index + 1} of ${images.length} for ${title}`;
+
   return (
     <div className="auction-page">
-      {deleteConfirmOpen && listingIsActive &&
-        createPortal(
-          <div
-            className="auction-delete-overlay"
-            role="presentation"
-            onClick={() => setDeleteConfirmOpen(false)}
-          >
-            <div
-              className="auction-delete-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="auction-delete-title"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 id="auction-delete-title">Delete listing</h2>
-              <p className="auction-delete-modal-text">
-                Are you sure you want to delete this listing? This cannot be undone.
-              </p>
-              <div className="auction-delete-modal-actions">
-                <button
-                  type="button"
-                  className="auction-btn-ghost"
-                  onClick={() => setDeleteConfirmOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="auction-btn-danger"
-                  onClick={() => {
-                    setDeleteConfirmOpen(false);
-                    setDeleteUiMessage(
-                      "Listing deletion is not available yet — the server does not support it in this build."
-                    );
-                  }}
-                >
-                  Delete listing
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      <button className="auction-back" onClick={() => navigate(-1)}>
+      <button type="button" className="auction-back" onClick={() => navigate(-1)}>
         Back to results
       </button>
 
+      <main id="main-content">
       <div className="auction-layout">
-        <section className="auction-gallery">
+        <section className="auction-gallery" aria-label="Listing images">
           <div className="auction-main-image">
             {selectedImage ? (
-              <img src={selectedImage} alt={title} />
+              <img
+                src={selectedImage}
+                alt={title}
+                width={800}
+                height={533}
+                loading="eager"
+                decoding="async"
+              />
             ) : (
               <div className="auction-empty-image">No image available</div>
             )}
           </div>
           {images.length > 0 && (
-            <div className="auction-thumbnails">
+            <div className="auction-thumbnails" role="group" aria-label="Image thumbnails">
               {images.map((img, index) => (
                 <button
+                  type="button"
                   key={`${img}-${index}`}
                   className="auction-thumb"
                   onClick={() => setSelectedImage(img)}
+                  aria-label={thumbLabel(index)}
+                  aria-pressed={selectedImage === img}
                 >
-                  <img src={img} alt={`Thumbnail ${index + 1}`} />
+                  <img src={img} alt="" width={70} height={70} loading="lazy" decoding="async" />
                 </button>
               ))}
             </div>
@@ -279,6 +353,26 @@ const AuctionDetail: React.FC = () => {
           <header className="auction-header">
             <h1>{title}</h1>
             <p className="auction-subtitle">{subtitle || description}</p>
+            {!auctionInactive && (
+              <p className="auction-live-row" aria-live="polite">
+                <span
+                  className={
+                    "auction-live-pill " +
+                    (sseStatus === "open"
+                      ? "auction-live-pill--open"
+                      : sseStatus === "connecting"
+                        ? "auction-live-pill--connecting"
+                        : "auction-live-pill--offline")
+                  }
+                >
+                  {sseStatus === "open"
+                    ? "Live bid updates"
+                    : sseStatus === "connecting"
+                      ? "Connecting to live updates…"
+                      : "Live updates unavailable"}
+                </span>
+              </p>
+            )}
           </header>
 
           <div className="auction-meta-row">
@@ -288,11 +382,17 @@ const AuctionDetail: React.FC = () => {
             </div>
             <div>
               <span className="auction-label">Time left</span>
-              <span className="auction-value">{timeLeftDisplay}</span>
+              <span className="auction-value" aria-live="polite">
+                {displayTimeLeft}
+              </span>
+            </div>
+            <div>
+              <span className="auction-label">Status</span>
+              <span className="auction-value">{auctionStatusLabel}</span>
             </div>
             <div>
               <span className="auction-label">Bids</span>
-              <span className="auction-value">{total_bids}</span>
+              <span className="auction-value">{displayTotalBids}</span>
             </div>
           </div>
 
@@ -300,15 +400,17 @@ const AuctionDetail: React.FC = () => {
             <div className="auction-price-main">
               <span className="auction-label">Current bid</span>
               <div className="auction-price-line">
-                <span className="auction-price">{formatCurrency(current_bid)}</span>
-                {!isListingOwner && has_joined && (
+                <span className="auction-price" aria-live="polite">
+                  {formatCurrency(displayCurrentBid)}
+                </span>
+                {!is_seller && has_joined && (
                   <span
                     className={
                       "auction-badge " +
-                      (is_highest_bidder ? "auction-badge-success" : "auction-badge-warning")
+                      (displayIsHighestBidder ? "auction-badge-success" : "auction-badge-warning")
                     }
                   >
-                    {is_highest_bidder ? "You are highest bidder" : "You have been outbid"}
+                    {displayIsHighestBidder ? "You are highest bidder" : "You have been outbid"}
                   </span>
                 )}
               </div>
@@ -319,7 +421,7 @@ const AuctionDetail: React.FC = () => {
               <span className="auction-value">{formatCurrency(starting_bid)}</span>
             </div>
 
-            {!isListingOwner && has_joined && (
+            {!is_seller && has_joined && (
               <div className="auction-last-bid">
                 <span className="auction-label">Your last bid</span>
                 <span className="auction-value">
@@ -336,29 +438,16 @@ const AuctionDetail: React.FC = () => {
             )}
           </div>
 
-          {isListingOwner && listingIsActive && (
-            <div className="auction-seller-actions">
+          {!is_seller && (
+            <div className="auction-actions">
               <button
                 type="button"
-                className="auction-btn-delete-listing"
-                onClick={() => {
-                  setDeleteUiMessage(null);
-                  setDeleteConfirmOpen(true);
-                }}
+                className="auction-btn-primary"
+                disabled={!canBid}
+                aria-disabled={!canBid}
               >
-                Delete listing
+                {canBid ? primaryCtaLabel : "Auction ended"}
               </button>
-              {deleteUiMessage ? (
-                <p className="auction-delete-ui-message" role="status">
-                  {deleteUiMessage}
-                </p>
-              ) : null}
-            </div>
-          )}
-
-          {canBid && (
-            <div className="auction-actions">
-              <button className="auction-btn-primary">{primaryCtaLabel}</button>
 
               {has_joined && (
                 <div className="auction-bid-input">
@@ -373,23 +462,32 @@ const AuctionDetail: React.FC = () => {
                       className="auction-bid-field"
                       value={bidAmount}
                       onChange={(event) => setBidAmount(event.target.value)}
-                      placeholder={String(Math.ceil(current_bid + 5))}
+                      placeholder={String(Math.ceil(displayCurrentBid + 5))}
+                      disabled={!canBid}
                     />
-                    <button className="auction-btn-ghost" disabled>
+                    <button type="button" className="auction-btn-ghost" disabled>
                       Bid
                     </button>
                   </div>
-                  {!is_highest_bidder && (
+                  {!displayIsHighestBidder && canBid && (
                     <p className="auction-hint">
-                      You are currently outbid. Try at least {formatCurrency(Math.ceil(current_bid + 5))} to take the lead.
+                      You are currently outbid. Try at least {formatCurrency(Math.ceil(displayCurrentBid + 5))} to take the lead.
                     </p>
+                  )}
+                  {!canBid && (
+                    <p className="auction-hint">Bidding is closed for this auction.</p>
                   )}
                 </div>
               )}
 
-              {!has_joined && (
+              {!has_joined && canBid && (
                 <p className="auction-hint">
                   Join the auction to place your first bid and get live updates when you are outbid.
+                </p>
+              )}
+              {!has_joined && !canBid && (
+                <p className="auction-hint">
+                  This auction has ended. Refresh later to see final settlement details.
                 </p>
               )}
             </div>
@@ -408,6 +506,7 @@ const AuctionDetail: React.FC = () => {
           </section>
         </section>
       </div>
+      </main>
     </div>
   );
 };

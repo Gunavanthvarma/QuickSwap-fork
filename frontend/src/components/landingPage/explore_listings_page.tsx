@@ -1,8 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import "../landingPage/loggedin_landing_page.css";
+import "./landing_page.css";
+import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
-import type { StripItem } from "./top_listings_strip";
+import {
+  mapTopListingsToStripItems,
+  useTopListingsQuery,
+} from "./topListingsQuery";
 
 type ExploreMode = "trending" | "ending-soon" | "starting-soon";
 
@@ -10,25 +14,9 @@ interface ExploreListingsPageProps {
   mode: ExploreMode;
 }
 
-interface TopListingApiItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  image: string;
-  current_bid: number;
-}
-
-interface TopListingsResponse {
-  ending_soon: TopListingApiItem[] | null;
-  starting_soon: TopListingApiItem[] | null;
-  trending_now: TopListingApiItem[] | null;
-}
-
 const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
   const navigate = useNavigate();
-  const [items, setItems] = useState<StripItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isPending, isError, error } = useTopListingsQuery();
 
   const pageTitle = useMemo(() => {
     if (mode === "trending") return "Trending now";
@@ -36,97 +24,32 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
     return "Latest";
   }, [mode]);
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(amount || 0);
+  const items = useMemo(() => {
+    if (!data) return [];
+    if (mode === "trending") return mapTopListingsToStripItems(data.trending_now, "Trending");
+    if (mode === "ending-soon") return mapTopListingsToStripItems(data.ending_soon, "Ending soon");
+    return mapTopListingsToStripItems(data.starting_soon, "Latest");
+  }, [data, mode]);
 
-  const getApiUrl = (path: string) => {
-    const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-    const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-    return apiBase ? `${apiBase.replace(/\/$/, "")}${path}` : path;
-  };
-
-  const mapToStripItems = (list: TopListingApiItem[] | null, tag: string): StripItem[] => {
-    if (!Array.isArray(list)) return [];
-
-    return list.map((item) => ({
-      id: item.id,
-      name: item.subtitle ? `${item.title} · ${item.subtitle}` : item.title,
-      price: `Current bid: ${formatCurrency(item.current_bid)}`,
-      image: item.image,
-      tag,
-    }));
-  };
-
-  useEffect(() => {
-    const fetchTopListings = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const token = localStorage.getItem("accessToken");
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-
-        const response = await fetch(getApiUrl("/api/toplistings"), {
-          method: "GET",
-          headers,
-        });
-
-        const payload: TopListingsResponse = await response.json().catch(() => ({
-          ending_soon: null,
-          starting_soon: null,
-          trending_now: null,
-        }));
-
-        if (!response.ok) {
-          const message = (payload as any)?.error || (payload as any)?.message || "Failed to fetch listings";
-          throw new Error(message);
-        }
-
-        if (mode === "trending") {
-          setItems(mapToStripItems(payload.trending_now, "Trending"));
-          return;
-        }
-
-        if (mode === "ending-soon") {
-          setItems(mapToStripItems(payload.ending_soon, "Ending soon"));
-          return;
-        }
-
-        setItems(mapToStripItems(payload.starting_soon, "Latest"));
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to fetch listings");
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTopListings();
-  }, [mode]);
+  const listError = isError ? (error instanceof Error ? error.message : "Failed to fetch listings") : null;
 
   return (
     <div className="landing">
-      <header className="navbar">
+      <header className="navbar" aria-label="Explore listings">
         <div className="navbar-logo">
           <span className="logo-text">Quickswap</span>
         </div>
         <div className="navbar-actions">
-          <button className="btn ghost" onClick={() => navigate(-1)}>
+          <button type="button" className="btn ghost" onClick={() => navigate(-1)}>
             Back
           </button>
-          <button className="btn ghost" onClick={() => navigate("/profile")}>
+          <button type="button" className="btn ghost" onClick={() => navigate("/profile")}>
             Profile
           </button>
         </div>
       </header>
 
+      <main id="main-content">
       <section className="hero" style={{ minHeight: "auto", paddingBottom: "1rem" }}>
         <div className="hero-content">
           <span className="hero-badge">Explore</span>
@@ -134,9 +57,9 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
         </div>
       </section>
 
-      {loading && <section className="strip-section">Loading auctions...</section>}
-      {!loading && error && <section className="strip-section">{error}</section>}
-      {!loading && !error && (
+      {isPending && <section className="strip-section">Loading auctions...</section>}
+      {!isPending && listError && <section className="strip-section">{listError}</section>}
+      {!isPending && !listError && data && (
         <TopListingsStrip
           title={pageTitle}
           items={items}
@@ -165,6 +88,7 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
           }
         />
       )}
+      </main>
     </div>
   );
 };

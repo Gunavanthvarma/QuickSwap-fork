@@ -51,7 +51,7 @@ describe('Profile Components', () => {
 
         it('navigates when a listing card is clicked', () => {
             render(<ListingsTab listings={mockListings} loading={false} error={null} />, { wrapper: BrowserRouter });
-            const card = screen.getByRole('article');
+            const card = screen.getByRole('button', { name: /open auction: test listing/i });
             fireEvent.click(card);
             expect(mockNavigate).toHaveBeenCalledWith('/auction/1');
         });
@@ -83,7 +83,7 @@ describe('Profile Components', () => {
 
         it('navigates when a bid card is clicked', () => {
             render(<BidsTab bids={mockBids} loading={false} error={null} />, { wrapper: BrowserRouter });
-            const card = screen.getByRole('article');
+            const card = screen.getByRole('button', { name: /open auction: test bid/i });
             fireEvent.click(card);
             expect(mockNavigate).toHaveBeenCalledWith('/auction/b1');
         });

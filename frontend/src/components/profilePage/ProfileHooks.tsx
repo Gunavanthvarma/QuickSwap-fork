@@ -1,14 +1,12 @@
-import { useState, useEffect } from "react";
-import { useNavigate, type NavigateFunction } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { readUserFromStorage } from "../../auth/auth-context";
+import { useSignInRedirect } from "../../auth/useSignInRedirect";
+import { apiErrorMessage, authHeaders, getApiUrl, isFetchAborted, isRecord } from "../../lib/api";
+import { formatCurrency } from "../../lib/format";
 import {
   formatTimeRemainingFromBackendString,
   formatTimeRemainingFromEnd,
 } from "../../utils/formatTimeRemaining";
-import {
-  clearLocalAuth,
-  fetchAuthMe,
-  getApiUrl,
-} from "../../utils/authApi";
 import type {
   ProfileResponse,
   EditFormState,
@@ -17,23 +15,13 @@ import type {
   BidCardItem,
   MyListingApiItem,
   MyBidsApiItem,
+  MyListingsApiResponse,
+  MyBidsApiResponse,
 } from "./Profile.types";
 
-export { getApiUrl };
-
-// ─── Utils ────────────────────────────────────────────────────────────────────
-
-export const formatCurrency = (amount: number): string =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount || 0);
-
-function clearAuthAndRedirectToSignIn(navigate: NavigateFunction) {
-  clearLocalAuth();
-  navigate("/signin", { replace: true });
-}
+export type ProfileFetchOptions = {
+  signal?: AbortSignal;
+};
 
 // ─── useProfile ───────────────────────────────────────────────────────────────
 
@@ -69,58 +57,31 @@ export const useProfile = () => {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteAccountModalKey, setDeleteAccountModalKey] = useState(0);
 
-  const navigate = useNavigate();
+  const redirectToSignin = useSignInRedirect();
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-          navigate("/signin");
-          return;
-        }
-
-        const expiryRaw = localStorage.getItem("accessTokenExpiry");
-        if (expiryRaw) {
-          const expiryMs = Number(expiryRaw);
-          if (Number.isFinite(expiryMs) && Date.now() >= expiryMs) {
-            clearAuthAndRedirectToSignIn(navigate);
-            return;
-          }
-        }
-
-        const userStr = localStorage.getItem("user");
-        if (!userStr) {
-          navigate("/signin");
-          return;
-        }
-
-        const parsed: ProfileResponse = JSON.parse(userStr);
-        const me = await fetchAuthMe(token);
-        if (cancelled) return;
-
-        const merged: ProfileResponse = {
-          ...parsed,
-          id: me.id,
-          email: me.email,
-        };
-        setUser(merged);
-        localStorage.setItem("user", JSON.stringify(merged));
-      } catch (err) {
-        console.error("Failed to load profile session:", err);
-        if (!cancelled) {
-          setError("Failed to load profile");
-          clearAuthAndRedirectToSignIn(navigate);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+    try {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        redirectToSignin();
+        return;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [navigate]);
+
+      const parsed = readUserFromStorage();
+      if (!parsed) {
+        redirectToSignin();
+        return;
+      }
+
+      setUser(parsed);
+    } catch (err: unknown) {
+      console.error("Failed to parse user from local storage:", err);
+      setError("Failed to load profile");
+      redirectToSignin();
+    } finally {
+      setLoading(false);
+    }
+  }, [redirectToSignin]);
 
   const handleEditOpen = () => {
     if (user) {
@@ -176,7 +137,7 @@ export const useProfile = () => {
     setDeleteAccountError(null);
     const token = localStorage.getItem("accessToken");
     if (!token) {
-      navigate("/signin");
+      redirectToSignin();
       return;
     }
 
@@ -202,7 +163,7 @@ export const useProfile = () => {
       if (!response.ok) {
         if (response.status === 401) {
           closeDeleteAccountFlow();
-          clearAuthAndRedirectToSignIn(navigate);
+          redirectToSignin();
           return;
         }
         setDeleteAccountError(apiError || "Could not delete account. Please try again.");
@@ -210,7 +171,7 @@ export const useProfile = () => {
       }
 
       closeDeleteAccountFlow();
-      clearAuthAndRedirectToSignIn(navigate);
+      redirectToSignin();
     } catch (err) {
       console.error("[API] /api/profile/account error:", err);
       setDeleteAccountError(
@@ -242,7 +203,7 @@ export const useProfile = () => {
 
     const token = localStorage.getItem("accessToken");
     if (!token) {
-      navigate("/signin");
+      redirectToSignin();
       return false;
     }
 
@@ -278,7 +239,7 @@ export const useProfile = () => {
             setPasswordUpdateError(apiError || "Incorrect old password");
             return false;
           }
-          clearAuthAndRedirectToSignIn(navigate);
+          redirectToSignin();
           return false;
         }
         setPasswordUpdateError(apiError || "Failed to update password");
@@ -302,7 +263,7 @@ export const useProfile = () => {
 
     const token = localStorage.getItem("accessToken");
     if (!token) {
-      navigate("/signin");
+      redirectToSignin();
       return false;
     }
 
@@ -327,7 +288,7 @@ export const useProfile = () => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 401) {
-          clearAuthAndRedirectToSignIn(navigate);
+          redirectToSignin();
           return false;
         }
         const msg =
@@ -404,11 +365,15 @@ export const useMyListings = () => {
   const [userListings, setUserListings] = useState<ListingCardItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const redirectToSignin = useSignInRedirect();
 
-  const fetchMyListings = async () => {
+  const fetchMyListings = useCallback(async (options?: ProfileFetchOptions) => {
+    const { signal } = options ?? {};
     const token = localStorage.getItem("accessToken");
-    if (!token) { navigate("/signin"); return; }
+    if (!token) {
+      redirectToSignin();
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -416,18 +381,16 @@ export const useMyListings = () => {
     try {
       const response = await fetch(getApiUrl("/api/mylistings"), {
         method: "GET",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: authHeaders(token),
+        signal,
       });
 
-      const payload = await response.json().catch(() => ({}));
+      const rawJson: unknown = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (response.status === 401) {
-          clearAuthAndRedirectToSignIn(navigate);
-          return;
-        }
-        throw new Error(payload.error || payload.message || "Failed to fetch listings");
+        throw new Error(apiErrorMessage(rawJson, "Failed to fetch listings"));
       }
 
+      const payload = rawJson as MyListingsApiResponse;
       const listings: ListingCardItem[] = Array.isArray(payload.listings)
         ? payload.listings.map((item: MyListingApiItem) => ({
             id: item.listing_id,
@@ -441,14 +404,17 @@ export const useMyListings = () => {
         : [];
 
       setUserListings(listings);
-    } catch (err) {
+    } catch (err: unknown) {
+      if (isFetchAborted(err)) return;
       console.error("[API] /api/mylistings error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch listings");
       setUserListings([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [redirectToSignin]);
 
   return { userListings, loading, error, fetchMyListings };
 };
@@ -459,11 +425,15 @@ export const useMyBids = () => {
   const [userBids, setUserBids] = useState<BidCardItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const redirectToSignin = useSignInRedirect();
 
-  const fetchMyBids = async () => {
+  const fetchMyBids = useCallback(async (options?: ProfileFetchOptions) => {
+    const { signal } = options ?? {};
     const token = localStorage.getItem("accessToken");
-    if (!token) { navigate("/signin"); return; }
+    if (!token) {
+      redirectToSignin();
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -471,21 +441,21 @@ export const useMyBids = () => {
     try {
       const response = await fetch(getApiUrl("/api/mybids"), {
         method: "GET",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: authHeaders(token),
+        signal,
       });
 
-      const payload = await response.json().catch(() => ({}));
+      const rawJson: unknown = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (response.status === 401) {
-          clearAuthAndRedirectToSignIn(navigate);
-          return;
-        }
-        throw new Error(payload.error || payload.message || "Failed to fetch bids");
+        throw new Error(apiErrorMessage(rawJson, "Failed to fetch bids"));
       }
 
-      const raw: MyBidsApiItem[] = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload.bids) ? payload.bids : [];
+      let raw: MyBidsApiItem[] = [];
+      if (Array.isArray(rawJson)) {
+        raw = rawJson as MyBidsApiItem[];
+      } else if (isRecord(rawJson) && Array.isArray(rawJson.bids)) {
+        raw = (rawJson as MyBidsApiResponse).bids ?? [];
+      }
 
       const bids: BidCardItem[] = raw.map((item) => {
         const normalized = item.label?.toLowerCase();
@@ -507,14 +477,17 @@ export const useMyBids = () => {
       });
 
       setUserBids(bids);
-    } catch (err) {
+    } catch (err: unknown) {
+      if (isFetchAborted(err)) return;
       console.error("[API] /api/mybids error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch bids");
       setUserBids([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [redirectToSignin]);
 
   return { userBids, loading, error, fetchMyBids };
 };

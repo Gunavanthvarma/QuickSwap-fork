@@ -18,16 +18,24 @@ export const ProfileNavbar: React.FC = () => {
   return (
     <header className="profile-navbar">
       <div className="profile-navbar-left">
-        <button className="profile-back-pill" onClick={() => navigate("/")}>← Back</button>
+        <button type="button" className="profile-back-pill" onClick={() => navigate("/")}>← Back</button>
         <div className="navbar-logo">
           <span className="logo-text">Quickswap</span>
         </div>
       </div>
-      <nav className="navbar-links">
-        <button className="navbar-link-button" onClick={() => navigate("/")}>Browse</button>
-        <button className="navbar-link-button" onClick={() => navigate("/start_selling")}>Sell</button>
-        <button className="navbar-link-button active" onClick={() => navigate("/profile")}>Profile</button>
+      <nav className="navbar-links" aria-label="Profile">
+        <button type="button" className="navbar-link-button" onClick={() => navigate("/")}>Browse</button>
+        <button type="button" className="navbar-link-button" onClick={() => navigate("/start_selling")}>Sell</button>
+        <button type="button" className="navbar-link-button active" onClick={() => navigate("/profile")}>Profile</button>
       </nav>
+      <div className="navbar-actions">
+        <button type="button" className="btn ghost-icon" aria-label="Notifications (coming soon)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </button>
+      </div>
     </header>
   );
 };
@@ -40,16 +48,24 @@ interface ProfileHeaderProps {
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, displayName }) => (
-  <section className="profile-header">
+  <section className="profile-header" aria-labelledby="profile-display-name">
     <div className="profile-header-content">
       <div className="profile-avatar">
         <img
           src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=600"
-          alt="User avatar"
+          alt=""
+          width={80}
+          height={80}
+          decoding="async"
         />
+        <span className="profile-verified" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </span>
       </div>
       <div className="profile-info">
-        <h1>{displayName}</h1>
+        <h1 id="profile-display-name">{displayName}</h1>
         <p className="profile-username">{user.email}</p>
       </div>
       <div className="profile-stats">
@@ -69,10 +85,40 @@ interface ProfileTabsProps {
 }
 
 export const ProfileTabs: React.FC<ProfileTabsProps> = ({ activeTab, onTabChange }) => (
-  <section className="profile-tabs">
-    <button type="button" className={`tab ${activeTab === "listings" ? "active" : ""}`} onClick={() => onTabChange("listings")}>My Listings</button>
-    <button type="button" className={`tab ${activeTab === "bids" ? "active" : ""}`} onClick={() => onTabChange("bids")}>My Bids</button>
-    <button type="button" className={`tab ${activeTab === "settings" ? "active" : ""}`} onClick={() => onTabChange("settings")}>Settings</button>
+  <section className="profile-tabs" role="tablist" aria-label="Profile sections">
+    <button
+      type="button"
+      role="tab"
+      id="tab-listings"
+      className={`tab ${activeTab === "listings" ? "active" : ""}`}
+      aria-selected={activeTab === "listings"}
+      aria-controls="profile-tab-panel"
+      onClick={() => onTabChange("listings")}
+    >
+      My Listings
+    </button>
+    <button
+      type="button"
+      role="tab"
+      id="tab-bids"
+      className={`tab ${activeTab === "bids" ? "active" : ""}`}
+      aria-selected={activeTab === "bids"}
+      aria-controls="profile-tab-panel"
+      onClick={() => onTabChange("bids")}
+    >
+      My Bids
+    </button>
+    <button
+      type="button"
+      role="tab"
+      id="tab-settings"
+      className={`tab ${activeTab === "settings" ? "active" : ""}`}
+      aria-selected={activeTab === "settings"}
+      aria-controls="profile-tab-panel"
+      onClick={() => onTabChange("settings")}
+    >
+      Settings
+    </button>
   </section>
 );
 
@@ -124,9 +170,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   }
 
   return (
-    <div className="edit-profile-modal-overlay">
-      <div className="edit-profile-modal-content">
-        <h2>Edit Profile</h2>
+    <div className="edit-profile-modal-overlay" role="presentation">
+      <div
+        className="edit-profile-modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-profile-title"
+      >
+        <h2 id="edit-profile-title">Edit Profile</h2>
         <form onSubmit={handleFormSubmit} className="edit-profile-form">
           {saveError ? (
             <p className="edit-profile-error" role="alert">
@@ -134,23 +185,47 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </p>
           ) : null}
           <div className="settings-group">
-            <label>First Name</label>
-            <input type="text" value={editForm.first_name} required disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))} />
+            <label htmlFor="edit-first-name">First Name</label>
+            <input
+              id="edit-first-name"
+              type="text"
+              value={editForm.first_name}
+              required
+              disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))}
+            />
           </div>
           <div className="settings-group">
-            <label>Last Name</label>
-            <input type="text" value={editForm.last_name} required disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))} />
+            <label htmlFor="edit-last-name">Last Name</label>
+            <input
+              id="edit-last-name"
+              type="text"
+              value={editForm.last_name}
+              required
+              disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))}
+            />
           </div>
           <div className="settings-group">
-            <label>Phone number</label>
-            <input type="tel" value={editForm.mobile} required disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))} />
+            <label htmlFor="edit-mobile">Phone number</label>
+            <input
+              id="edit-mobile"
+              type="tel"
+              value={editForm.mobile}
+              required
+              disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))}
+            />
           </div>
           <div className="settings-group">
-            <label>Email address</label>
-            <input type="email" value={user.email} disabled className="disabled-input" />
+            <label htmlFor="edit-email-readonly">Email address</label>
+            <input
+              id="edit-email-readonly"
+              type="email"
+              value={user.email}
+              disabled
+              className="disabled-input"
+            />
           </div>
           <div className="edit-profile-actions">
             <button type="button" className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
@@ -398,9 +473,30 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
   return (
     <div className="listings-grid">
       {listings.map((listing) => (
-        <article key={listing.id} className="listing-card" style={{ cursor: "pointer" }} onClick={() => navigate(`/auction/${listing.id}`)}>
+        <div
+          key={listing.id}
+          className="listing-card"
+          style={{ cursor: "pointer" }}
+          role="button"
+          tabIndex={0}
+          aria-label={`Open auction: ${listing.name}`}
+          onClick={() => navigate(`/auction/${listing.id}`)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              navigate(`/auction/${listing.id}`);
+            }
+          }}
+        >
           <div className="listing-image-wrap">
-            <img src={listing.image} alt={listing.name} />
+            <img
+              src={listing.image}
+              alt=""
+              width={400}
+              height={225}
+              loading="lazy"
+              decoding="async"
+            />
             <span className={`listing-status ${listing.status}`}>
               {listing.status === "active" ? "Active" : "Ended"}
             </span>
@@ -422,7 +518,7 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
               <span className="btn-link">View details</span>
             </div>
           </div>
-        </article>
+        </div>
       ))}
     </div>
   );
@@ -459,9 +555,30 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
   return (
     <div className="bids-grid">
       {bids.map((bid) => (
-        <article key={bid.id} className="bid-card" style={{ cursor: "pointer" }} onClick={() => navigate(`/auction/${bid.id}`)}>
+        <div
+          key={bid.id}
+          className="bid-card"
+          style={{ cursor: "pointer" }}
+          role="button"
+          tabIndex={0}
+          aria-label={`Open auction: ${bid.name}`}
+          onClick={() => navigate(`/auction/${bid.id}`)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              navigate(`/auction/${bid.id}`);
+            }
+          }}
+        >
           <div className="bid-image-wrap">
-            <img src={bid.image} alt={bid.name} />
+            <img
+              src={bid.image}
+              alt=""
+              width={400}
+              height={225}
+              loading="lazy"
+              decoding="async"
+            />
             <span className={`bid-status ${bid.status}`}>
               {bid.status === "winning" && "Winning"}
               {bid.status === "outbid" && "Outbid"}
@@ -482,7 +599,7 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
             </div>
             {bid.timeLeft && (
               <div className="bid-time">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                   <circle cx="12" cy="12" r="10"></circle>
                   <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
@@ -495,7 +612,7 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
               {bid.status === "lost" && <span className="btn ghost" style={{ display: "block", textAlign: "center" }}>View details</span>}
             </div>
           </div>
-        </article>
+        </div>
       ))}
     </div>
   );
