@@ -34,6 +34,20 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 
 	mux.HandleFunc("POST /api/auctions/{id}/bid", bidHandler(c, pg, rdb))
 	mux.HandleFunc("GET /api/ws/auctions/{id}", sseAuctionHandler(rdb))
+
+	// Profile Settings Update Page
+	mux.HandleFunc("/api/profile/update", updateProfileHandler(c))
+	mux.HandleFunc("/api/profile/password", updatePasswordHandler(c))
+	mux.HandleFunc("/api/profile/account", deleteAccountHandler(c))
+	mux.HandleFunc("/api/profile/stats", profileStatsHandler(c))
+
+	// Address routes
+	mux.HandleFunc("/api/address", addressHandler(c))
+	mux.HandleFunc("/api/address/{id}", addressByIDHandler(c))
+
+	// Payment method routesx
+	mux.HandleFunc("/api/add-payment", paymentHandler(c))
+	mux.HandleFunc("/api/add-payment/{id}", paymentByIDHandler(c))
 	return mux
 }
 

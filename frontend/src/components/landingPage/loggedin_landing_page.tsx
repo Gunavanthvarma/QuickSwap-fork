@@ -123,12 +123,28 @@ const LoggedInLandingPage: React.FC = () => {
             items={endingSoonItems}
             onShowAll={() => navigate("/explore/ending-soon")}
             onViewItem={(id) => navigate(`/auction/${id}`)}
+            emptyState={{
+              illustration: "ending",
+              title: "Nothing ending soon",
+              description:
+                "No auctions are in the final stretch right now. Browse what’s trending or check back later.",
+              ctaLabel: "Browse trending",
+              onCta: () => navigate("/explore/trending"),
+            }}
           />
           <TopListingsStrip
             title="Latest"
             items={latestItems}
             onShowAll={() => navigate("/explore/starting-soon")}
             onViewItem={(id) => navigate(`/auction/${id}`)}
+            emptyState={{
+              illustration: "latest",
+              title: "No new listings yet",
+              description:
+                "Launch your first auction or explore what’s already live on the marketplace.",
+              ctaLabel: "Start selling",
+              onCta: () => navigate("/start_selling"),
+            }}
           />
         </>
       )}

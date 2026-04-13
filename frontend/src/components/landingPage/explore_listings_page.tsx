@@ -65,6 +65,27 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
           items={items}
           layout="grid"
           onViewItem={(id) => navigate(`/auction/${id}`)}
+          emptyState={
+            mode === "ending-soon"
+              ? {
+                  illustration: "ending",
+                  title: "Nothing ending soon",
+                  description:
+                    "No auctions are winding down right now. See what’s trending instead.",
+                  ctaLabel: "Browse trending",
+                  onCta: () => navigate("/explore/trending"),
+                }
+              : mode === "starting-soon"
+                ? {
+                    illustration: "latest",
+                    title: "No new listings yet",
+                    description:
+                      "List an item to kick off an auction, or open the home feed to browse live sales.",
+                    ctaLabel: "Start selling",
+                    onCta: () => navigate("/start_selling"),
+                  }
+                : undefined
+          }
         />
       )}
       </main>

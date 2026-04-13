@@ -1,6 +1,15 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import type { ProfileResponse, EditFormState, ListingCardItem, BidCardItem, ActiveTab } from "./Profile.types";
+import { AddressDetailsSection, PaymentDetailsSection } from "./SettingsAddressPayment";
+import { StripEmptyStateView } from "../landingPage/top_listings_strip";
+import type {
+  ProfileResponse,
+  EditFormState,
+  UpdatePasswordFormState,
+  ListingCardItem,
+  BidCardItem,
+  ActiveTab,
+} from "./Profile.types";
 
 // ─── ProfileNavbar ────────────────────────────────────────────────────────────
 
@@ -119,59 +128,317 @@ interface EditProfileModalProps {
   user: ProfileResponse;
   editForm: EditFormState;
   setEditForm: React.Dispatch<React.SetStateAction<EditFormState>>;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent) => Promise<boolean>;
   onClose: () => void;
+  saveError?: string | null;
+  saving?: boolean;
 }
 
-export const EditProfileModal: React.FC<EditProfileModalProps> = ({ user, editForm, setEditForm, onSubmit, onClose }) => (
-  <div className="edit-profile-modal-overlay" role="presentation">
-    <div
-      className="edit-profile-modal-content"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="edit-profile-title"
-    >
-      <h2 id="edit-profile-title">Edit Profile</h2>
-      <form onSubmit={onSubmit} className="edit-profile-form">
-        <div className="settings-group">
-          <label htmlFor="edit-first-name">First Name</label>
-          <input
-            id="edit-first-name"
-            type="text"
-            value={editForm.first_name}
-            required
-            onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))}
-          />
+export const EditProfileModal: React.FC<EditProfileModalProps> = ({
+  user,
+  editForm,
+  setEditForm,
+  onSubmit,
+  onClose,
+  saveError,
+  saving = false,
+}) => {
+  const [showSuccess, setShowSuccess] = React.useState(false);
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ok = await onSubmit(e);
+    if (ok) setShowSuccess(true);
+  };
+
+  if (showSuccess) {
+    return (
+      <div className="edit-profile-modal-overlay">
+        <div className="edit-profile-modal-content">
+          <h2>Edit Profile</h2>
+          <p className="edit-profile-success" role="status">
+            Profile updated successfully
+          </p>
+          <div className="edit-profile-actions edit-profile-actions--single">
+            <button type="button" className="btn primary" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
-        <div className="settings-group">
-          <label htmlFor="edit-last-name">Last Name</label>
-          <input
-            id="edit-last-name"
-            type="text"
-            value={editForm.last_name}
-            required
-            onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))}
-          />
+      </div>
+    );
+  }
+
+  return (
+    <div className="edit-profile-modal-overlay" role="presentation">
+      <div
+        className="edit-profile-modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-profile-title"
+      >
+        <h2 id="edit-profile-title">Edit Profile</h2>
+        <form onSubmit={handleFormSubmit} className="edit-profile-form">
+          {saveError ? (
+            <p className="edit-profile-error" role="alert">
+              {saveError}
+            </p>
+          ) : null}
+          <div className="settings-group">
+            <label htmlFor="edit-first-name">First Name</label>
+            <input
+              id="edit-first-name"
+              type="text"
+              value={editForm.first_name}
+              required
+              disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))}
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="edit-last-name">Last Name</label>
+            <input
+              id="edit-last-name"
+              type="text"
+              value={editForm.last_name}
+              required
+              disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))}
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="edit-mobile">Phone number</label>
+            <input
+              id="edit-mobile"
+              type="tel"
+              value={editForm.mobile}
+              required
+              disabled={saving}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))}
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="edit-email-readonly">Email address</label>
+            <input
+              id="edit-email-readonly"
+              type="email"
+              value={user.email}
+              disabled
+              className="disabled-input"
+            />
+          </div>
+          <div className="edit-profile-actions">
+            <button type="button" className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="submit" className="btn primary" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ─── UpdatePasswordModal ──────────────────────────────────────────────────────
+
+interface UpdatePasswordModalProps {
+  passwordForm: UpdatePasswordFormState;
+  setPasswordForm: React.Dispatch<React.SetStateAction<UpdatePasswordFormState>>;
+  onSubmit: (e: React.FormEvent) => Promise<boolean>;
+  onClose: () => void;
+  updateError?: string | null;
+  saving?: boolean;
+}
+
+export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
+  passwordForm,
+  setPasswordForm,
+  onSubmit,
+  onClose,
+  updateError,
+  saving = false,
+}) => {
+  const [showSuccess, setShowSuccess] = React.useState(false);
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    const ok = await onSubmit(e);
+    if (ok) setShowSuccess(true);
+  };
+
+  if (showSuccess) {
+    return (
+      <div className="edit-profile-modal-overlay">
+        <div className="edit-profile-modal-content">
+          <h2>Update password</h2>
+          <p className="edit-profile-success" role="status">
+            Password updated successfully
+          </p>
+          <div className="edit-profile-actions edit-profile-actions--single">
+            <button type="button" className="btn primary" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
-        <div className="settings-group">
-          <label htmlFor="edit-mobile">Phone number</label>
-          <input
-            id="edit-mobile"
-            type="tel"
-            value={editForm.mobile}
-            required
-            onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))}
-          />
-        </div>
-        <div className="settings-group">
-          <label htmlFor="edit-email-readonly">Email address</label>
-          <input id="edit-email-readonly" type="email" value={user.email} disabled className="disabled-input" />
-        </div>
-        <div className="edit-profile-actions">
-          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary">Save</button>
-        </div>
-      </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="edit-profile-modal-overlay">
+      <div className="edit-profile-modal-content">
+        <h2>Update password</h2>
+        <form onSubmit={handleFormSubmit} className="edit-profile-form">
+          {updateError ? (
+            <p className="edit-profile-error" role="alert">
+              {updateError}
+            </p>
+          ) : null}
+          <div className="settings-group">
+            <label htmlFor="update-pw-old">Old password</label>
+            <input
+              id="update-pw-old"
+              type="password"
+              autoComplete="current-password"
+              value={passwordForm.old_password}
+              required
+              disabled={saving}
+              onChange={(e) =>
+                setPasswordForm((prev) => ({ ...prev, old_password: e.target.value }))
+              }
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="update-pw-new">New password</label>
+            <input
+              id="update-pw-new"
+              type="password"
+              autoComplete="new-password"
+              value={passwordForm.new_password}
+              required
+              disabled={saving}
+              onChange={(e) =>
+                setPasswordForm((prev) => ({ ...prev, new_password: e.target.value }))
+              }
+            />
+          </div>
+          <div className="settings-group">
+            <label htmlFor="update-pw-confirm">Re-enter new password</label>
+            <input
+              id="update-pw-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={passwordForm.confirm_password}
+              required
+              disabled={saving}
+              onChange={(e) =>
+                setPasswordForm((prev) => ({ ...prev, confirm_password: e.target.value }))
+              }
+            />
+          </div>
+          <div className="edit-profile-actions">
+            <button type="button" className="btn ghost" onClick={onClose} disabled={saving}>
+              Close
+            </button>
+            <button type="submit" className="btn primary" disabled={saving}>
+              {saving ? "Updating…" : "Update"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ─── DeleteAccountModal (step 1) ──────────────────────────────────────────────
+
+interface DeleteAccountModalProps {
+  confirmPhrase: string;
+  setConfirmPhrase: React.Dispatch<React.SetStateAction<string>>;
+  phraseError: string | null;
+  onKeep: () => void;
+  onDelete: () => void;
+}
+
+export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
+  confirmPhrase,
+  setConfirmPhrase,
+  phraseError,
+  onKeep,
+  onDelete,
+}) => (
+  <div className="edit-profile-modal-overlay">
+    <div className="edit-profile-modal-content">
+      <h2>Delete account</h2>
+      <p className="delete-account-prompt">Are you sure you want to delete the account?</p>
+      <div className="settings-group">
+        <label htmlFor="delete-account-confirm">Type <strong>Delete</strong> to confirm</label>
+        <input
+          id="delete-account-confirm"
+          type="text"
+          autoComplete="off"
+          value={confirmPhrase}
+          onChange={(e) => setConfirmPhrase(e.target.value)}
+          placeholder="Delete"
+        />
+      </div>
+      {phraseError ? (
+        <p className="edit-profile-error" role="alert">
+          {phraseError}
+        </p>
+      ) : null}
+      <div className="edit-profile-actions">
+        <button type="button" className="btn ghost" onClick={onKeep}>
+          Keep
+        </button>
+        <button type="button" className="btn danger" onClick={onDelete}>
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── DeleteAccountFinalModal (step 2) ─────────────────────────────────────────
+
+interface DeleteAccountFinalModalProps {
+  onNo: () => void;
+  onYes: () => void | Promise<void>;
+  error?: string | null;
+  deleting?: boolean;
+}
+
+export const DeleteAccountFinalModal: React.FC<DeleteAccountFinalModalProps> = ({
+  onNo,
+  onYes,
+  error,
+  deleting = false,
+}) => (
+  <div className="edit-profile-modal-overlay">
+    <div className="edit-profile-modal-content">
+      <h2>Delete account</h2>
+      <p className="delete-account-prompt">Are you sure you want to delete account?</p>
+      {error ? (
+        <p className="edit-profile-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="edit-profile-actions">
+        <button type="button" className="btn ghost" onClick={onNo} disabled={deleting}>
+          No
+        </button>
+        <button
+          type="button"
+          className="btn danger"
+          disabled={deleting}
+          onClick={() => {
+            void onYes();
+          }}
+        >
+          {deleting ? "Deleting…" : "Yes"}
+        </button>
+      </div>
     </div>
   </div>
 );
@@ -188,7 +455,21 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
   const navigate = useNavigate();
   if (loading) return <div>Loading your listings...</div>;
   if (error) return <div>{error}</div>;
-  if (listings.length === 0) return <div>No listings found.</div>;
+  if (listings.length === 0) {
+    return (
+      <div className="profile-listings-empty">
+        <div className="strip-scroll strip-scroll--empty">
+          <StripEmptyStateView
+            config={{
+              illustration: "first-listing",
+              ctaLabel: "Start your first listing",
+              onCta: () => navigate("/start_selling"),
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="listings-grid">
       {listings.map((listing) => (
@@ -255,7 +536,21 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
   const navigate = useNavigate();
   if (loading) return <div>Loading your bids...</div>;
   if (error) return <div>{error}</div>;
-  if (bids.length === 0) return <div>No bids found.</div>;
+  if (bids.length === 0) {
+    return (
+      <div className="profile-bids-empty">
+        <div className="strip-scroll strip-scroll--empty">
+          <StripEmptyStateView
+            config={{
+              illustration: "no-bids",
+              ctaLabel: "Browse live auctions",
+              onCta: () => navigate("/"),
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bids-grid">
@@ -327,9 +622,15 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
 
 interface SettingsTabProps {
   onEditProfile: () => void;
+  onUpdatePassword: () => void;
+  onDeleteAccount: () => void;
 }
 
-export const SettingsTab: React.FC<SettingsTabProps> = ({ onEditProfile }) => (
+export const SettingsTab: React.FC<SettingsTabProps> = ({
+  onEditProfile,
+  onUpdatePassword,
+  onDeleteAccount,
+}) => (
   <div className="settings-container">
     <div className="settings-section">
       <h2>Account Details</h2>
@@ -338,18 +639,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onEditProfile }) => (
         <button type="button" className="btn ghost" onClick={onEditProfile}>Edit profile</button>
       </div>
     </div>
+    <AddressDetailsSection />
+    <PaymentDetailsSection />
     <div className="settings-section">
       <h2>Privacy & Security</h2>
       <div className="settings-group inline">
         <label>Change password</label>
-        <button type="button" className="btn ghost">Update password</button>
+        <button type="button" className="btn ghost" onClick={onUpdatePassword}>
+          Update password
+        </button>
       </div>
       <div className="settings-group inline" style={{ marginBottom: 0 }}>
         <label style={{ color: "var(--error)" }}>Delete account</label>
-        <button type="button" className="btn ghost" style={{ color: "var(--error)", borderColor: "var(--error-soft)" }}>
+        <button
+          type="button"
+          className="btn ghost"
+          style={{ color: "var(--error)", borderColor: "var(--error-soft)" }}
+          onClick={onDeleteAccount}
+        >
           Delete account
         </button>
       </div>
     </div>
   </div>
 );
+
+/** No-op export so stale imports of the removed success banner do not break the bundle. */
+export const ProfileUpdateSuccessBanner: React.FC<{
+  visible?: boolean;
+  onDismiss?: () => void;
+}> = () => null;
