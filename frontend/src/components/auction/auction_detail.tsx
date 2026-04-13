@@ -292,6 +292,7 @@ const AuctionDetail: React.FC = () => {
         ? "Ended"
         : time_left;
 
+  const auctionStatusLabel = auctionInactive ? "Ended" : "Active";
   const canBid = !is_seller && !auctionInactive;
 
   // Decide primary call-to-action text based on backend participation state.
@@ -386,6 +387,10 @@ const AuctionDetail: React.FC = () => {
               </span>
             </div>
             <div>
+              <span className="auction-label">Status</span>
+              <span className="auction-value">{auctionStatusLabel}</span>
+            </div>
+            <div>
               <span className="auction-label">Bids</span>
               <span className="auction-value">{displayTotalBids}</span>
             </div>
@@ -433,9 +438,16 @@ const AuctionDetail: React.FC = () => {
             )}
           </div>
 
-          {canBid && (
+          {!is_seller && (
             <div className="auction-actions">
-              <button type="button" className="auction-btn-primary">{primaryCtaLabel}</button>
+              <button
+                type="button"
+                className="auction-btn-primary"
+                disabled={!canBid}
+                aria-disabled={!canBid}
+              >
+                {canBid ? primaryCtaLabel : "Auction ended"}
+              </button>
 
               {has_joined && (
                 <div className="auction-bid-input">
@@ -451,22 +463,31 @@ const AuctionDetail: React.FC = () => {
                       value={bidAmount}
                       onChange={(event) => setBidAmount(event.target.value)}
                       placeholder={String(Math.ceil(displayCurrentBid + 5))}
+                      disabled={!canBid}
                     />
                     <button type="button" className="auction-btn-ghost" disabled>
                       Bid
                     </button>
                   </div>
-                  {!displayIsHighestBidder && (
+                  {!displayIsHighestBidder && canBid && (
                     <p className="auction-hint">
                       You are currently outbid. Try at least {formatCurrency(Math.ceil(displayCurrentBid + 5))} to take the lead.
                     </p>
                   )}
+                  {!canBid && (
+                    <p className="auction-hint">Bidding is closed for this auction.</p>
+                  )}
                 </div>
               )}
 
-              {!has_joined && (
+              {!has_joined && canBid && (
                 <p className="auction-hint">
                   Join the auction to place your first bid and get live updates when you are outbid.
+                </p>
+              )}
+              {!has_joined && !canBid && (
+                <p className="auction-hint">
+                  This auction has ended. Refresh later to see final settlement details.
                 </p>
               )}
             </div>
