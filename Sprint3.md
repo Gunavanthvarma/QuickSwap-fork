@@ -6,7 +6,49 @@
 
 ### Frontend
 
-*(No frontend work completed this sprint.)*
+#### App shell & routing (`frontend/src/App.tsx`)
+- **Lazy-loaded** pages with a shared `Suspense` fallback (“Loading…”).
+- **`/`** — `LandingPage` when logged out, **`LoggedInLandingPage`** when logged in.
+- **Auth routes**: `/signin`, `/signup`.
+- **Auction**: `/auction`, `/auction/:id` (public).
+- **Explore** (public): `/explore/trending`, `/explore/ending-soon`, `/explore/starting-soon` → **`ExploreListingsPage`** with a `mode` prop.
+- **Protected** (wrapped in **`ProtectedRoute`**, redirects to `/signin` with return state): `/profile`, `/start_selling`, **`/edit-listing/:id`** (reuse **`StartSelling`** in edit mode).
+- Root layout: **`AuthProvider`** wraps **`BrowserRouter`** so auth context and session reconciliation apply to all routes.
+
+#### Authentication & session (`frontend/src/auth/`)
+- **`AuthProvider.tsx`** — Initializes user from **`getValidUserFromStorage()`**; listens for **`AUTH_SESSION_EXPIRED_EVENT`**; **reconciles** session on route changes (`pathname` / search / hash), on a **60s interval**, and on **window focus**; **logout** clears tokens, user cache, and **TanStack Query** `topListingsQuery` data, then navigates home.
+- **`auth-context.ts`** — **`readUserFromStorage`**, **`getValidUserFromStorage`** (honours **`accessTokenExpiry`** with a small skew so the client treats the session as expired slightly early), **`clearAuthStorage`**, **`notifyAuthSessionExpired`** (clears storage + dispatches event). Used by API paths that receive **401** to sync UI.
+- **Sign-in / sign-up** — Persist **`accessToken`**, **`refreshToken`**, **`accessTokenExpiry`**, and **`user`** JSON for profile cache.
+- **`useSignInRedirect`** — Navigate to `/signin` with **`state.from`** for post-login return (used by **`NotificationsBell`** when no token).
+
+#### API helpers (`frontend/src/lib/`)
+- **`api.ts`** — **`getApiUrl`**, **`getSSEUrl`** (absolute URL for **`EventSource`** when the API base is relative), **`authHeaders`**, **`apiErrorMessage`**, **`isRecord`**, **`isFetchAborted`**.
+- **`listingApi.ts`** — **`fetchNotifications`**, **`fetchUnreadNotificationCount`**, **`markNotificationRead`**, **`markAllNotificationsRead`**, **`deleteListing`** (`DELETE /api/listing?id=…`), plus shared **`NotificationItem`** typing.
+
+#### Notifications UI (`frontend/src/components/notifications/`)
+- **`NotificationsBell.tsx`** — Renders only when **`isAuthenticated`**; polls **unread count** on an interval and on **`visibilitychange`**; bell toggles a panel that loads **`GET /api/notifications`**; **Mark all read**, per-item read + navigate to **`/auction/{listing_id}`**; click-outside and **Escape** close the panel; badge shows count or **`99+`**.
+
+#### Landing, home feed & explore (`frontend/src/components/landingPage/`)
+- **`useTopListingsQuery` / `topListingsQuery.ts`** — **TanStack React Query** for **`GET /api/toplistings`**; shared query key cleared on logout / session expiry.
+- **`TopListingsStrip`** — Optional **`hideWhenEmpty`**, plain **`emptyText`**, or rich **`emptyState`** with **`StripEmptyStateView`** (illustrations + CTA); **`Show all`** when **`onShowAll`** is set and items exist; carousel vs grid **`layout`**.
+- **`loggedin_landing_page.tsx`** — Logged-in hero + strips for trending / ending soon / starting soon; embeds **`NotificationsBell`** in the navbar.
+- **`explore_listings_page.tsx`** — Single-feed explore pages driven by **`mode`**; back + profile actions in header.
+
+#### Auction detail & live bids (`frontend/src/components/auction/`)
+- **`auction_detail.tsx`** — Loads listing via **`GET /api/listing?id=`**; **`EventSource`** on **`getSSEUrl('/api/ws/auctions/{id}')`** for **`bid_update`** events; local state for **live bid**, SSE connection status, countdown (**`auctionCountdown.ts`**: server skew, **`formatCountdown`**, etc.); place bid **`POST /api/auctions/{id}/bid`**; seller **delete listing** via **`deleteListing`**.
+- **`auctionCountdown.ts`** — Parsed/time-sync helpers covered by unit tests.
+
+#### Start selling (create & edit) (`frontend/src/components/auction/start_selling.tsx`)
+- **Create** flow: **`POST /api/createlisting`**; success card with links to listing, profile, or create another.
+- **Edit** flow: route **`/edit-listing/:id`** loads existing listing, submits updates via **`PUT /api/listing`**, success copy distinguishes **updated** vs **published**.
+
+#### Profile & settings (`frontend/src/components/profilePage/`)
+- **`ProfilePage.tsx`** — **`ProfileNavbar`** (back, browse/sell/profile nav, **`NotificationsBell`**); **`ProfileHeader`** (initials avatar, display name, email, **Member since**, phone, **location**, **bio** read-only grid, edit button); **`ProfileHeaderCharts`** (listings active/sold + bids winning/outbid/lost donuts); tabs **Listings / Bids / Settings**.
+- **`ProfileHooks.tsx`** — Loads **`GET /api/profile`**, merges into cached user; **edit profile** modal submit **`PUT /api/profile/update`** with **first_name, last_name, mobile** from the form and **preserves existing `bio` / `location`** from the cached user (those fields are **not** shown in the edit modal); password change with **`old_password`**, **`new_password`**, **`re_enter_new_password`**; **delete account** **`DELETE /api/profile/account`** with **`formatDeleteAccountApiError`** for readable Postgres/Supabase FK errors; **My Bids** tab refreshes on an interval and on window focus while active.
+- **`Profilecomponents.tsx`** — **`ListingsTab`** / **`BidsTab`** cards navigate to **`/auction/{id}`**; listings may **delete** seller’s listing via **`deleteListing`**; **`SettingsTab`** wires **Edit profile**, **Update password**, **Delete account**; optional **`deleteAccountNotice`** when bids are loading, bids request failed, or user has bids (informational only, button stays enabled); **`SettingsAddressPayment.tsx`** for address and payment CRUD against **`/api/address`** and **`/api/add-payment`**.
+
+#### Global test harness (`frontend/src/test/setup.ts`)
+- In-memory **`localStorage`** polyfill when the Node/Vitest environment exposes a broken storage API (keeps auth/notification tests stable).
 
 ---
 
@@ -17,7 +59,7 @@ Extended the user profile surface with update, password-change, account-deletion
 
 - `PUT /api/profile/update` — Update first name, last name, mobile, bio, and location.
 - `PUT /api/profile/password` — Change password with old-password verification. Validates length ≥ 6, new-password match, and re-authenticates with Supabase before applying.
-- `DELETE /api/profile/account` — Permanently delete the authenticated user's Supabase account (requires service key).
+- `DELETE /api/profile/account` — Permanently delete the authenticated user's Supabase account (requires service key). **When PostgreSQL is connected (`DATABASE_URL`), the handler first deletes that user’s rows in `bids` and `notifications` so foreign-key constraints do not block Supabase Admin user deletion.**
 - `GET /api/profile/stats` — Return aggregate stats for the user (e.g. `items_sold` count).
 
 #### 2. Address Management Endpoints
@@ -73,7 +115,19 @@ Background goroutine (`StartAuctionSettlementWorker`) that runs on server start.
 
 ## Frontend Unit Tests
 
-*(No frontend unit tests this sprint.)*
+All tests run with **Vitest** + **jsdom** + **Testing Library** (`npm test`). Config: `frontend/vitest.config.ts` (includes `src/test/setup.ts`).
+
+| File | What it covers |
+|------|----------------|
+| `src/lib/__tests__/api.test.ts` | `isRecord`, `isFetchAborted`, `getApiUrl` / `getSSEUrl`, `apiErrorMessage`. |
+| `src/lib/__tests__/listingApi.test.ts` | Mocked `fetch`: notifications list/count, mark read / mark all read, `deleteListing`, error paths. |
+| `src/auth/__tests__/auth-context.test.ts` | `clearAuthStorage`, `readUserFromStorage`, `getValidUserFromStorage` (expiry skew), `notifyAuthSessionExpired`. |
+| `src/components/notifications/__tests__/NotificationsBell.test.tsx` | Auth gate, badge / `99+`, panel load, redirect without token, mark all read, navigation on item, API error alert. |
+| `src/components/profilePage/__tests__/Profilecomponents.test.tsx` | Listings/Bids tabs, **ProfileHeader**, **ProfileTabs**, **SettingsTab** actions. |
+| `src/components/profilePage/__tests__/ProfileHeaderCharts.test.tsx` | Loading, empty, and populated chart **aria-label** / legends. |
+| `src/components/profilePage/__tests__/ProfileHooks.test.ts` | `formatCurrency`, `getApiUrl`, **`formatDeleteAccountApiError`** (FK / bids messaging). |
+| `src/components/landingPage/__tests__/top_listings_strip.test.tsx` | `hideWhenEmpty`, plain vs rich empty state, card click, Show all, **`StripEmptyStateView`** CTA-only layout. |
+| `src/components/auction/__tests__/auctionCountdown.test.ts` | `parseTimeSyncPayload`, `computeServerSkewMs`, `remainingUntilEndMs`, `formatCountdown`. |
 
 ---
 
@@ -402,8 +456,10 @@ The server sets `Content-Type: text/event-stream` and subscribes to the Redis Pu
 #### SSE Event Format
 ```
 event: bid_update
-data: {"auction_id":"...","user_id":"...","amount":50.00,"timestamp":"..."}
+data: {"auction_id":"...","current_bid":50.00,"highest_bidder":"..."}
 ```
 
+- Payload is forwarded from Redis as published by the bid pipeline (`current_bid`, `highest_bidder`, etc.).
+- **Frontend** (`auction_detail.tsx`) parses this JSON and merges it into live UI state.
 - The connection stays open until the client disconnects.
 - No authentication is required (publicly observable bid stream).
