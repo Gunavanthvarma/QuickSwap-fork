@@ -12,6 +12,7 @@ import (
 )
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // DBQuerier abstracts the database interaction to allow for testing without a live DB connection.
 type DBQuerier interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
@@ -28,6 +29,26 @@ type DBQuerier interface {
 }
 
 >>>>>>> af79120 (Implemented unit tests for Sprint-3)
+||||||| 7e2417b
+=======
+<<<<<<< HEAD
+// DBQuerier abstracts the database interaction to allow for testing without a live DB connection.
+type DBQuerier interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+||||||| 387a7f0
+=======
+// DBQuerier abstracts the database interaction to allow for testing without a live DB connection.
+type DBQuerier interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+>>>>>>> af7912091123bce996561c5964ad2a32f637d03c
+>>>>>>> 3e200bf635d2f597119621c3cfe73c29e9157ff9
 // NewPostgresPool creates a new PostgreSQL connection pool using the DATABASE_URL environment variable.
 func NewPostgresPool(ctx context.Context) (*pgxpool.Pool, error) {
 	connStr := os.Getenv("DATABASE_URL")
