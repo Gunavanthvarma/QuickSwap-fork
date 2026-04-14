@@ -4,6 +4,12 @@ export interface ProfileResponse {
   first_name?: string;
   last_name?: string;
   mobile?: string;
+  /** ISO timestamp from `profiles.created_at` when returned by the API */
+  created_at?: string;
+  /** Optional `profiles.bio` — add column in Supabase if missing */
+  bio?: string;
+  /** Optional `profiles.location` (city, region, etc.) */
+  location?: string;
 }
 
 export interface MyListingApiItem {

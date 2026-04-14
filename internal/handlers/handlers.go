@@ -37,7 +37,7 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	// Profile Settings Update Page
 	mux.HandleFunc("/api/profile/update", updateProfileHandler(c))
 	mux.HandleFunc("/api/profile/password", updatePasswordHandler(c))
-	mux.HandleFunc("/api/profile/account", deleteAccountHandler(c))
+	mux.HandleFunc("/api/profile/account", deleteAccountHandler(c, pg))
 	mux.HandleFunc("/api/profile/stats", profileStatsHandler(c))
 
 	// Address routes
@@ -49,6 +49,14 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	mux.HandleFunc("/api/add-payment/{id}", paymentByIDHandler(c))
 
 	mux.HandleFunc("GET /api/ws/auctions/{id}", sseAuctionHandler(rdb))
+
+	// Notification routes
+	mux.HandleFunc("GET /api/notifications", getNotificationsHandler(pg))
+	mux.HandleFunc("GET /api/notifications/count", getNotificationCountHandler(pg))
+	mux.HandleFunc("PUT /api/notifications/read-all", markAllNotificationsReadHandler(pg))
+	mux.HandleFunc("PUT /api/notifications/{id}/read", markNotificationReadHandler(pg))
+	mux.HandleFunc("DELETE /api/notifications/{id}", deleteNotificationHandler(pg))
+
 	return mux
 }
 

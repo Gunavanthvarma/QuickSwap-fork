@@ -4,6 +4,7 @@ import { useAuth } from "../../auth/useAuth";
 import "./landing_page.css";
 import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import {
   mapTopListingsToStripItems,
   useTopListingsQuery,
@@ -52,6 +53,7 @@ const LoggedInLandingPage: React.FC = () => {
           <button type="button" className="btn primary" onClick={handleStartSelling}>
             Start selling
           </button>
+          <NotificationsBell />
           {isAuthenticated && (
             <>
               <button
@@ -117,34 +119,30 @@ const LoggedInLandingPage: React.FC = () => {
             items={trendingItems}
             onShowAll={() => navigate("/explore/trending")}
             onViewItem={(id) => navigate(`/auction/${id}`)}
+            emptyState={{
+              illustration: "latest",
+              title: "Nothing trending yet",
+              description:
+                "When auctions heat up, they’ll appear here. List something new or browse individual categories from Explore.",
+              ctaLabel: "Start selling",
+              onCta: () => {
+                handleStartSelling();
+              },
+            }}
           />
           <TopListingsStrip
             title="Ending soon"
             items={endingSoonItems}
+            hideWhenEmpty
             onShowAll={() => navigate("/explore/ending-soon")}
             onViewItem={(id) => navigate(`/auction/${id}`)}
-            emptyState={{
-              illustration: "ending",
-              title: "Nothing ending soon",
-              description:
-                "No auctions are in the final stretch right now. Browse what’s trending or check back later.",
-              ctaLabel: "Browse trending",
-              onCta: () => navigate("/explore/trending"),
-            }}
           />
           <TopListingsStrip
             title="Latest"
             items={latestItems}
+            hideWhenEmpty
             onShowAll={() => navigate("/explore/starting-soon")}
             onViewItem={(id) => navigate(`/auction/${id}`)}
-            emptyState={{
-              illustration: "latest",
-              title: "No new listings yet",
-              description:
-                "Launch your first auction or explore what’s already live on the marketplace.",
-              ctaLabel: "Start selling",
-              onCta: () => navigate("/start_selling"),
-            }}
           />
         </>
       )}

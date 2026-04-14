@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { deleteListing } from "../../lib/listingApi";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import { AddressDetailsSection, PaymentDetailsSection } from "./SettingsAddressPayment";
 import { StripEmptyStateView } from "../landingPage/top_listings_strip";
 import type {
@@ -29,12 +31,7 @@ export const ProfileNavbar: React.FC = () => {
         <button type="button" className="navbar-link-button active" onClick={() => navigate("/profile")}>Profile</button>
       </nav>
       <div className="navbar-actions">
-        <button type="button" className="btn ghost-icon" aria-label="Notifications (coming soon)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-        </button>
+        <NotificationsBell />
       </div>
     </header>
   );
@@ -42,40 +39,118 @@ export const ProfileNavbar: React.FC = () => {
 
 // ─── ProfileHeader ────────────────────────────────────────────────────────────
 
+export function formatMemberSinceLabel(iso?: string): string | null {
+  if (!iso?.trim()) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+/** Full calendar date for profile copy, e.g. "April 9, 2025". */
+export function formatMemberSinceDetailed(iso?: string): string | null {
+  if (!iso?.trim()) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+export function profileDisplayInitials(user: ProfileResponse, displayName: string): string {
+  const f = user.first_name?.trim();
+  const l = user.last_name?.trim();
+  if (f && l) return (f[0] + l[0]).toUpperCase();
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 1 && parts[0].length >= 2) return parts[0].slice(0, 2).toUpperCase();
+  const em = user.email?.trim();
+  if (em && em.length >= 2) return em.slice(0, 2).toUpperCase();
+  return "?";
+}
+
 interface ProfileHeaderProps {
   user: ProfileResponse;
   displayName: string;
+  onEditProfile?: () => void;
+  /** Compact activity donuts (listings / bids); keeps the header row visually balanced. */
+  activityCharts?: React.ReactNode;
 }
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, displayName }) => (
-  <section className="profile-header" aria-labelledby="profile-display-name">
-    <div className="profile-header-content">
-      <div className="profile-avatar">
-        <img
-          src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=600"
-          alt=""
-          width={80}
-          height={80}
-          decoding="async"
-        />
-        <span className="profile-verified" aria-hidden>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </span>
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
+  user,
+  displayName,
+  onEditProfile,
+  activityCharts,
+}) => {
+  const initials = profileDisplayInitials(user, displayName);
+  const memberDetail = formatMemberSinceDetailed(user.created_at);
+  const memberShort = formatMemberSinceLabel(user.created_at);
+  const mobile = user.mobile?.trim();
+  const location = user.location?.trim();
+  const bio = user.bio?.trim();
+
+  return (
+    <section className="profile-header" aria-labelledby="profile-display-name">
+      <div className="profile-header-top">
+        <div className="profile-header-content">
+          <div
+            className="profile-avatar profile-avatar--initials"
+            aria-hidden
+          >
+            <span className="profile-avatar-initials">{initials}</span>
+          </div>
+          <div className="profile-info">
+            <h1 id="profile-display-name">{displayName}</h1>
+            <p className="profile-username">{user.email}</p>
+          </div>
+        </div>
+        {activityCharts}
+        {onEditProfile ? (
+          <div className="profile-header-actions">
+            <button type="button" className="btn primary" onClick={onEditProfile}>
+              Edit profile
+            </button>
+          </div>
+        ) : null}
       </div>
-      <div className="profile-info">
-        <h1 id="profile-display-name">{displayName}</h1>
-        <p className="profile-username">{user.email}</p>
-      </div>
-      <div className="profile-stats">
-        <div className="stat"><span className="stat-value">24</span><span className="stat-label">Items sold</span></div>
-        <div className="stat"><span className="stat-value">4.9</span><span className="stat-label">Rating</span></div>
-        <div className="stat"><span className="stat-value">98%</span><span className="stat-label">Response rate</span></div>
-      </div>
-    </div>
-  </section>
-);
+
+      <dl className="profile-detail-grid">
+        <div className="profile-detail-item">
+          <dt>Member since</dt>
+          <dd>
+            {memberDetail ? (
+              <span className="profile-detail-primary">{memberDetail}</span>
+            ) : memberShort ? (
+              <span className="profile-detail-primary">{memberShort}</span>
+            ) : (
+              <span className="profile-detail-muted">Not available yet</span>
+            )}
+          </dd>
+        </div>
+        <div className="profile-detail-item">
+          <dt>Phone</dt>
+          <dd>{mobile ? mobile : <span className="profile-detail-muted">Not set</span>}</dd>
+        </div>
+        <div className="profile-detail-item">
+          <dt>Location</dt>
+          <dd>{location ? location : <span className="profile-detail-muted">Not set</span>}</dd>
+        </div>
+        <div className="profile-detail-item">
+          <dt>About</dt>
+          <dd>
+            {bio ? (
+              <p className="profile-bio-text">{bio}</p>
+            ) : (
+              <span className="profile-detail-muted">No bio yet.</span>
+            )}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  );
+};
 
 // ─── ProfileTabs ──────────────────────────────────────────────────────────────
 
@@ -449,10 +524,31 @@ interface ListingsTabProps {
   listings: ListingCardItem[];
   loading: boolean;
   error: string | null;
+  onRefreshListings?: () => void;
 }
 
-export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, error }) => {
+export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, error, onRefreshListings }) => {
   const navigate = useNavigate();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (listingId: string, name: string) => {
+    if (!window.confirm(`Delete “${name}”? This cannot be undone.`)) return;
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
+    setDeletingId(listingId);
+    try {
+      await deleteListing(listingId, token);
+      onRefreshListings?.();
+    } catch (err: unknown) {
+      window.alert(err instanceof Error ? err.message : "Failed to delete listing");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) return <div>Loading your listings...</div>;
   if (error) return <div>{error}</div>;
   if (listings.length === 0) {
@@ -462,6 +558,8 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
           <StripEmptyStateView
             config={{
               illustration: "first-listing",
+              title: "No listings yet",
+              description: "Create your first auction to reach buyers with a clear end time and live bidding.",
               ctaLabel: "Start your first listing",
               onCta: () => navigate("/start_selling"),
             }}
@@ -473,52 +571,75 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
   return (
     <div className="listings-grid">
       {listings.map((listing) => (
-        <div
-          key={listing.id}
-          className="listing-card"
-          style={{ cursor: "pointer" }}
-          role="button"
-          tabIndex={0}
-          aria-label={`Open auction: ${listing.name}`}
-          onClick={() => navigate(`/auction/${listing.id}`)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              navigate(`/auction/${listing.id}`);
-            }
-          }}
-        >
-          <div className="listing-image-wrap">
-            <img
-              src={listing.image}
-              alt=""
-              width={400}
-              height={225}
-              loading="lazy"
-              decoding="async"
-            />
-            <span className={`listing-status ${listing.status}`}>
-              {listing.status === "active" ? "Active" : "Ended"}
-            </span>
-          </div>
-          <div className="listing-body">
-            <h3>{listing.name}</h3>
-            <div className="listing-details">
-              <div className="price-info">
-                <span className="label">Current bid</span>
-                <span className="value">{listing.currentBid}</span>
+        <article key={listing.id} className="listing-card">
+          <div
+            className="listing-card-main"
+            role="button"
+            tabIndex={0}
+            aria-label={`Open auction: ${listing.name}`}
+            onClick={() => navigate(`/auction/${listing.id}`)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                navigate(`/auction/${listing.id}`);
+              }
+            }}
+          >
+            <div className="listing-image-wrap">
+              <img
+                src={listing.image}
+                alt=""
+                width={400}
+                height={225}
+                loading="lazy"
+                decoding="async"
+              />
+              <span className={`listing-status ${listing.status}`}>
+                {listing.status === "active" ? "Active" : "Ended"}
+              </span>
+            </div>
+            <div className="listing-body">
+              <h3>{listing.name}</h3>
+              <div className="listing-details">
+                <div className="price-info">
+                  <span className="label">Current bid</span>
+                  <span className="value">{listing.currentBid}</span>
+                </div>
+                <div className="price-info">
+                  <span className="label">Time left</span>
+                  <span className="value">{listing.timeLeft}</span>
+                </div>
               </div>
-              <div className="price-info">
-                <span className="label">Time left</span>
-                <span className="value">{listing.timeLeft}</span>
+              <div className="listing-meta">
+                <span>{listing.bids} bids</span>
+                <span className="btn-link">View details</span>
               </div>
             </div>
-            <div className="listing-meta">
-              <span>{listing.bids} bids</span>
-              <span className="btn-link">View details</span>
-            </div>
           </div>
-        </div>
+          <div className="listing-card-actions">
+            <button
+              type="button"
+              className="listing-action-btn listing-action-btn--secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/edit-listing/${listing.id}`);
+              }}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="listing-action-btn listing-action-btn--danger"
+              disabled={deletingId === listing.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleDelete(listing.id, listing.name);
+              }}
+            >
+              {deletingId === listing.id ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        </article>
       ))}
     </div>
   );
@@ -624,12 +745,15 @@ interface SettingsTabProps {
   onEditProfile: () => void;
   onUpdatePassword: () => void;
   onDeleteAccount: () => void;
+  /** Optional note under Delete account (does not block the button). */
+  deleteAccountNotice?: string | null;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
   onEditProfile,
   onUpdatePassword,
   onDeleteAccount,
+  deleteAccountNotice = null,
 }) => (
   <div className="settings-container">
     <div className="settings-section">
@@ -660,6 +784,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           Delete account
         </button>
       </div>
+      {deleteAccountNotice ? (
+        <p className="settings-inline-hint" role="note">
+          {deleteAccountNotice}
+        </p>
+      ) : null}
     </div>
   </div>
 );
@@ -669,3 +798,5 @@ export const ProfileUpdateSuccessBanner: React.FC<{
   visible?: boolean;
   onDismiss?: () => void;
 }> = () => null;
+
+export { ProfileHeaderCharts } from "./ProfileHeaderCharts";

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { readUserFromStorage } from "../../auth/auth-context";
+import { notifyAuthSessionExpired, readUserFromStorage } from "../../auth/auth-context";
 import { useSignInRedirect } from "../../auth/useSignInRedirect";
 import { apiErrorMessage, authHeaders, getApiUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { formatCurrency } from "../../lib/format";
@@ -19,9 +19,65 @@ import type {
   MyBidsApiResponse,
 } from "./Profile.types";
 
+/** Maps Supabase/Postgres delete errors to copy users can act on (backend returns raw JSON in `error`). */
+export function formatDeleteAccountApiError(raw: string): string {
+  const fallback = "Could not delete account. Please try again or contact support.";
+  const t = raw.trim();
+  if (!t) return fallback;
+
+  const lower = t.toLowerCase();
+  const mentionsFk =
+    t.includes("23503") ||
+    lower.includes("foreign key constraint") ||
+    lower.includes("violates foreign key");
+
+  let detail = "";
+  const jsonPayload = t.replace(/^Failed to delete account:\s*/i, "").trim();
+  if (jsonPayload.startsWith("{")) {
+    try {
+      const o = JSON.parse(jsonPayload) as { code?: string; message?: string; detail?: string };
+      if (o.code === "23503") {
+        detail = `${o.message ?? ""} ${o.detail ?? ""}`.toLowerCase();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (mentionsFk || detail.includes("foreign") || detail.includes("referenced")) {
+    if (detail.includes("bids") || lower.includes("bids_user_id")) {
+      return "Your account can’t be deleted while bid history is still linked to it. The app can’t remove those records—please contact support to close your account.";
+    }
+    return "Your account can’t be deleted while some of your activity is still linked in our system (for example bids or listings). Please contact support to close your account.";
+  }
+
+  return t.length > 320 ? fallback : t;
+}
+
 export type ProfileFetchOptions = {
   signal?: AbortSignal;
 };
+
+function mergeProfileFromApi(base: ProfileResponse, row: Record<string, unknown>): ProfileResponse {
+  const out: ProfileResponse = { ...base };
+  const pickStr = (k: string): string | undefined =>
+    typeof row[k] === "string" ? (row[k] as string) : undefined;
+  const first = pickStr("first_name");
+  const last = pickStr("last_name");
+  const mobile = pickStr("mobile");
+  const email = pickStr("email");
+  if (first !== undefined) out.first_name = first;
+  if (last !== undefined) out.last_name = last;
+  if (mobile !== undefined) out.mobile = mobile;
+  if (email !== undefined) out.email = email;
+  const created = pickStr("created_at");
+  if (created !== undefined) out.created_at = created;
+  const bio = pickStr("bio");
+  if (bio !== undefined) out.bio = bio;
+  const location = pickStr("location");
+  if (location !== undefined) out.location = location;
+  return out;
+}
 
 // ─── useProfile ───────────────────────────────────────────────────────────────
 
@@ -60,27 +116,57 @@ export const useProfile = () => {
   const redirectToSignin = useSignInRedirect();
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        redirectToSignin();
-        return;
-      }
+    let cancelled = false;
 
-      const parsed = readUserFromStorage();
-      if (!parsed) {
-        redirectToSignin();
-        return;
-      }
+    const init = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+          redirectToSignin();
+          return;
+        }
 
-      setUser(parsed);
-    } catch (err: unknown) {
-      console.error("Failed to parse user from local storage:", err);
-      setError("Failed to load profile");
-      redirectToSignin();
-    } finally {
-      setLoading(false);
-    }
+        const parsed = readUserFromStorage();
+        if (!parsed) {
+          redirectToSignin();
+          return;
+        }
+
+        if (!cancelled) setUser(parsed);
+
+        const res = await fetch(getApiUrl("/api/profile"), {
+          method: "GET",
+          headers: authHeaders(token),
+        });
+
+        if (res.status === 401) {
+          notifyAuthSessionExpired();
+          redirectToSignin();
+          return;
+        }
+
+        if (!cancelled && res.ok) {
+          const row: unknown = await res.json().catch(() => null);
+          if (row && typeof row === "object" && !Array.isArray(row)) {
+            const merged = mergeProfileFromApi(parsed, row as Record<string, unknown>);
+            setUser(merged);
+            localStorage.setItem("user", JSON.stringify(merged));
+          }
+        }
+      } catch (err: unknown) {
+        console.error("Failed to load profile:", err);
+        if (!cancelled) setError("Failed to load profile");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void init();
+    return () => {
+      cancelled = true;
+    };
   }, [redirectToSignin]);
 
   const handleEditOpen = () => {
@@ -163,10 +249,13 @@ export const useProfile = () => {
       if (!response.ok) {
         if (response.status === 401) {
           closeDeleteAccountFlow();
+          notifyAuthSessionExpired();
           redirectToSignin();
           return;
         }
-        setDeleteAccountError(apiError || "Could not delete account. Please try again.");
+        setDeleteAccountError(
+          apiError ? formatDeleteAccountApiError(apiError) : "Could not delete account. Please try again.",
+        );
         return;
       }
 
@@ -175,7 +264,7 @@ export const useProfile = () => {
     } catch (err) {
       console.error("[API] /api/profile/account error:", err);
       setDeleteAccountError(
-        err instanceof Error ? err.message : "Could not delete account. Please try again."
+        err instanceof Error ? err.message : "Could not delete account. Please try again.",
       );
     } finally {
       setDeletingAccount(false);
@@ -239,6 +328,7 @@ export const useProfile = () => {
             setPasswordUpdateError(apiError || "Incorrect old password");
             return false;
           }
+          notifyAuthSessionExpired();
           redirectToSignin();
           return false;
         }
@@ -271,6 +361,8 @@ export const useProfile = () => {
       first_name: editForm.first_name.trim(),
       last_name: editForm.last_name.trim(),
       mobile: editForm.mobile.trim(),
+      location: (user.location ?? "").trim(),
+      bio: (user.bio ?? "").trim(),
     };
 
     setProfileSaveError(null);
@@ -288,6 +380,7 @@ export const useProfile = () => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 401) {
+          notifyAuthSessionExpired();
           redirectToSignin();
           return false;
         }
@@ -386,6 +479,11 @@ export const useMyListings = () => {
       });
 
       const rawJson: unknown = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        notifyAuthSessionExpired();
+        redirectToSignin();
+        return;
+      }
       if (!response.ok) {
         throw new Error(apiErrorMessage(rawJson, "Failed to fetch listings"));
       }
@@ -446,6 +544,11 @@ export const useMyBids = () => {
       });
 
       const rawJson: unknown = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        notifyAuthSessionExpired();
+        redirectToSignin();
+        return;
+      }
       if (!response.ok) {
         throw new Error(apiErrorMessage(rawJson, "Failed to fetch bids"));
       }

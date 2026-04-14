@@ -154,8 +154,8 @@
   justify-content: center;
   align-items: center;
   overflow: visible;
-  min-height: 132px;
-  padding: 4px 0 10px;
+  min-height: 200px;
+  padding: 16px 12px 20px;
 }
 
 .strip-scroll.strip-grid.strip-scroll--empty {
@@ -164,8 +164,12 @@
 
 .strip-empty {
   text-align: center;
-  max-width: 300px;
-  padding: 10px 12px 4px;
+  max-width: 380px;
+  padding: 16px 20px 12px;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border, #e2e8f0);
+  background: color-mix(in srgb, var(--card, #fff) 96%, var(--primary, #2563eb) 4%);
+  box-shadow: var(--shadow-subtle, 0 4px 14px rgba(15, 23, 42, 0.06));
 }
 
 .strip-scroll.strip-grid .strip-empty {
@@ -185,8 +189,8 @@
 
 .strip-empty-svg {
   display: block;
-  width: 72px;
-  height: 72px;
+  width: 88px;
+  height: 88px;
 }
 
 .strip-empty-svg-stroke {

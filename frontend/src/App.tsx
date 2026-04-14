@@ -70,6 +70,14 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/edit-listing/:id"
+          element={
+            <ProtectedRoute>
+              <StartSelling />
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

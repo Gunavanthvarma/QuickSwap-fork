@@ -8,6 +8,7 @@ import { useProfile, useMyListings, useMyBids } from "./ProfileHooks";
 import {
   ProfileNavbar,
   ProfileHeader,
+  ProfileHeaderCharts,
   ProfileTabs,
   EditProfileModal,
   UpdatePasswordModal,
@@ -48,8 +49,9 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (user) {
       void fetchMyListings();
+      void fetchMyBids();
     }
-  }, [user, fetchMyListings]);
+  }, [user, fetchMyListings, fetchMyBids]);
 
   useEffect(() => {
     if (activeTab !== "bids") return;
@@ -124,7 +126,7 @@ const ProfilePage: React.FC = () => {
         createPortal(
           <DeleteAccountFinalModal
             onNo={closeDeleteAccountFlow}
-            onYes={confirmDeleteAccount}
+            onYes={() => void confirmDeleteAccount()}
             error={deleteAccountError}
             deleting={deletingAccount}
           />,
@@ -132,24 +134,54 @@ const ProfilePage: React.FC = () => {
         )}
 
       <ProfileNavbar />
-      <ProfileHeader user={user} displayName={displayName} />
-      <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />
-
-      <section className="profile-content">
-        {activeTab === "listings" && (
-          <ListingsTab listings={userListings} loading={listingsLoading} error={listingsError}  />
-        )}
-        {activeTab === "bids" && (
-          <BidsTab bids={userBids} loading={bidsLoading} error={bidsError}  />
-        )}
-        {activeTab === "settings" && (
-          <SettingsTab
+      <div className="profile-shell">
+        <div className="profile-main-column">
+          <ProfileHeader
+            user={user}
+            displayName={displayName}
             onEditProfile={handleEditOpen}
-            onUpdatePassword={handlePasswordOpen}
-            onDeleteAccount={handleDeleteAccountOpen}
+            activityCharts={
+              <ProfileHeaderCharts
+                listings={userListings}
+                bids={userBids}
+                listingsLoading={listingsLoading}
+                bidsLoading={bidsLoading}
+              />
+            }
           />
-        )}
-      </section>
+          <ProfileTabs activeTab={activeTab} onTabChange={handleTabChange} />
+
+          <section className="profile-content">
+            {activeTab === "listings" && (
+              <ListingsTab
+                listings={userListings}
+                loading={listingsLoading}
+                error={listingsError}
+                onRefreshListings={() => void fetchMyListings()}
+              />
+            )}
+            {activeTab === "bids" && (
+              <BidsTab bids={userBids} loading={bidsLoading} error={bidsError} />
+            )}
+            {activeTab === "settings" && (
+              <SettingsTab
+                onEditProfile={handleEditOpen}
+                onUpdatePassword={handlePasswordOpen}
+                onDeleteAccount={handleDeleteAccountOpen}
+                deleteAccountNotice={
+                  bidsLoading
+                    ? "Loading your bid history…"
+                    : bidsError
+                      ? "Couldn’t load bid history. You can still try deleting your account, or refresh the page first."
+                      : userBids.length > 0
+                        ? "You have bids on record. Deletion may not succeed until linked bid data is removed—contact support if it fails."
+                        : null
+                }
+              />
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 };

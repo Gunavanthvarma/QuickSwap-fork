@@ -40,6 +40,7 @@ describe('Profile Components', () => {
 
         it('renders empty state with CTA when there are no listings', () => {
             render(<ListingsTab listings={[]} loading={false} error={null} />, { wrapper: BrowserRouter });
+            expect(screen.getByText(/no listings yet/i)).toBeInTheDocument();
             expect(screen.getByRole('button', { name: /start your first listing/i })).toBeInTheDocument();
         });
 
@@ -90,11 +91,21 @@ describe('Profile Components', () => {
     });
 
     describe('ProfileHeader', () => {
-        const mockUser = { id: 'u1', email: 'test@example.com' };
+        const mockUser = {
+            id: 'u1',
+            email: 'test@example.com',
+            first_name: 'Test',
+            last_name: 'User',
+            created_at: '2025-03-15T12:00:00.000Z',
+        };
         it('renders user info', () => {
             render(<ProfileHeader user={mockUser} displayName="Test User" />);
             expect(screen.getByText('Test User')).toBeInTheDocument();
             expect(screen.getByText('test@example.com')).toBeInTheDocument();
+            expect(screen.getByText('TU')).toBeInTheDocument();
+            expect(screen.getByText('Member since')).toBeInTheDocument();
+            const memberRow = screen.getByText('Member since').closest('.profile-detail-item');
+            expect(memberRow?.querySelector('dd')?.textContent).toMatch(/2025/);
         });
     });
 

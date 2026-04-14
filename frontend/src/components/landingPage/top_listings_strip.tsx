@@ -28,6 +28,8 @@ interface TopListingsStripProps {
   emptyText?: string;
   /** Rich empty state; when set and `items` is empty, replaces plain `emptyText`. */
   emptyState?: StripEmptyStateConfig;
+  /** When true and there are no items, the entire section (heading + body) is omitted. */
+  hideWhenEmpty?: boolean;
   onViewItem: (id: string) => void;
   onShowAll?: () => void;
   layout?: "carousel" | "grid";
@@ -206,11 +208,15 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
   items,
   emptyText = "No auctions available.",
   emptyState,
+  hideWhenEmpty = false,
   onViewItem,
   onShowAll,
   layout = "carousel",
 }) => {
   const isEmpty = items.length === 0;
+  if (hideWhenEmpty && isEmpty) {
+    return null;
+  }
   const scrollClass = [
     "strip-scroll",
     layout === "grid" ? "strip-grid" : "",
