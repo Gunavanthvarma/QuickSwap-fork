@@ -12,7 +12,7 @@ import (
 
 // createAuctionEndedNotifications inserts notifications for the seller and winner (if any)
 // when an auction ends.
-func createAuctionEndedNotifications(ctx context.Context, pg *pgxpool.Pool, auctionID, title, sellerID string, winnerID *string, winningPrice *float64) {
+func createAuctionEndedNotifications(ctx context.Context, pg db.DBQuerier, auctionID, title, sellerID string, winnerID *string, winningPrice *float64) {
 	insertNotif := func(userID, notifType, notifTitle, message string) {
 		_, err := pg.Exec(ctx, `
 			INSERT INTO notifications (user_id, type, title, message, listing_id)

@@ -23,8 +23,18 @@ func (m *MockRow) Scan(dest ...any) error {
 	return nil
 }
 
+type MockRows struct {
+	pgx.Rows
+}
+
+func (m *MockRows) Close() {}
+func (m *MockRows) Err() error { return nil }
+func (m *MockRows) Next() bool { return false }
+func (m *MockRows) Scan(dest ...any) error { return nil }
+
 type MockDBQuerier struct {
 	ExecFunc     func(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	QueryFunc    func(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRowFunc func(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
@@ -33,6 +43,13 @@ func (m *MockDBQuerier) Exec(ctx context.Context, sql string, arguments ...any) 
 		return m.ExecFunc(ctx, sql, arguments...)
 	}
 	return pgconn.CommandTag{}, nil
+}
+
+func (m *MockDBQuerier) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if m.QueryFunc != nil {
+		return m.QueryFunc(ctx, sql, args...)
+	}
+	return &MockRows{}, nil
 }
 
 func (m *MockDBQuerier) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {

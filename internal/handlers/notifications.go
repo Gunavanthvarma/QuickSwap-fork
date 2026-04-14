@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/quickswap/quickswap/internal/db"
 )
 
 // Notification represents a user notification record.
@@ -21,7 +21,7 @@ type Notification struct {
 
 // getNotificationsHandler returns all notifications for the authenticated user.
 // GET /api/notifications
-func getNotificationsHandler(pg *pgxpool.Pool) http.HandlerFunc {
+func getNotificationsHandler(pg db.DBQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -63,7 +63,7 @@ func getNotificationsHandler(pg *pgxpool.Pool) http.HandlerFunc {
 
 // getNotificationCountHandler returns the unread notification count for the user.
 // GET /api/notifications/count
-func getNotificationCountHandler(pg *pgxpool.Pool) http.HandlerFunc {
+func getNotificationCountHandler(pg db.DBQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -93,7 +93,7 @@ func getNotificationCountHandler(pg *pgxpool.Pool) http.HandlerFunc {
 
 // markNotificationReadHandler marks a single notification as read.
 // PUT /api/notifications/{id}/read
-func markNotificationReadHandler(pg *pgxpool.Pool) http.HandlerFunc {
+func markNotificationReadHandler(pg db.DBQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
 			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -133,7 +133,7 @@ func markNotificationReadHandler(pg *pgxpool.Pool) http.HandlerFunc {
 
 // markAllNotificationsReadHandler marks all notifications as read for the authenticated user.
 // PUT /api/notifications/read-all
-func markAllNotificationsReadHandler(pg *pgxpool.Pool) http.HandlerFunc {
+func markAllNotificationsReadHandler(pg db.DBQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
 			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -162,7 +162,7 @@ func markAllNotificationsReadHandler(pg *pgxpool.Pool) http.HandlerFunc {
 
 // deleteNotificationHandler deletes a single notification by ID.
 // DELETE /api/notifications/{id}
-func deleteNotificationHandler(pg *pgxpool.Pool) http.HandlerFunc {
+func deleteNotificationHandler(pg db.DBQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
 			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
