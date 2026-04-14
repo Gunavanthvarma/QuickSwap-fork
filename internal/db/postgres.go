@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+<<<<<<< HEAD
 // DBQuerier abstracts the database interaction to allow for testing without a live DB connection.
 type DBQuerier interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
@@ -18,6 +19,15 @@ type DBQuerier interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
+||||||| 387a7f0
+=======
+// DBQuerier abstracts the database interaction to allow for testing without a live DB connection.
+type DBQuerier interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+>>>>>>> af7912091123bce996561c5964ad2a32f637d03c
 // NewPostgresPool creates a new PostgreSQL connection pool using the DATABASE_URL environment variable.
 func NewPostgresPool(ctx context.Context) (*pgxpool.Pool, error) {
 	connStr := os.Getenv("DATABASE_URL")
