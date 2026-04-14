@@ -760,7 +760,7 @@ func TestDeleteAccountHandler_WrongMethod(t *testing.T) {
 	defer ts.Close()
 	initProfileTestEnv(ts)
 
-	handler := deleteAccountHandler(nil)
+	handler := deleteAccountHandler(nil, nil)
 	req := httptest.NewRequest("GET", "/api/profile/account", nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -774,7 +774,7 @@ func TestDeleteAccountHandler_NoToken(t *testing.T) {
 	defer ts.Close()
 	initProfileTestEnv(ts)
 
-	handler := deleteAccountHandler(nil)
+	handler := deleteAccountHandler(nil, nil)
 	req := httptest.NewRequest("DELETE", "/api/profile/account", nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -789,7 +789,7 @@ func TestDeleteAccountHandler_NoServiceKey(t *testing.T) {
 	initProfileTestEnv(ts)
 	os.Unsetenv("SUPABASE_SERVICE_KEY")
 
-	handler := deleteAccountHandler(nil)
+	handler := deleteAccountHandler(nil, nil)
 	req := httptest.NewRequest("DELETE", "/api/profile/account", nil)
 	req.Header.Set("Authorization", "Bearer validtoken")
 	rr := httptest.NewRecorder()
@@ -804,7 +804,7 @@ func TestDeleteAccountHandler_Valid(t *testing.T) {
 	defer ts.Close()
 	initProfileTestEnv(ts)
 
-	handler := deleteAccountHandler(nil)
+	handler := deleteAccountHandler(nil, nil)
 	req := httptest.NewRequest("DELETE", "/api/profile/account", nil)
 	req.Header.Set("Authorization", "Bearer validtoken")
 	rr := httptest.NewRecorder()

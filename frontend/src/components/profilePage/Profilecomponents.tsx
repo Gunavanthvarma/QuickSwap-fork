@@ -143,9 +143,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             {bio ? (
               <p className="profile-bio-text">{bio}</p>
             ) : (
-              <span className="profile-detail-muted">
-                Tell buyers who you are — open Edit profile to add a short bio.
-              </span>
+              <span className="profile-detail-muted">No bio yet.</span>
             )}
           </dd>
         </div>
@@ -292,31 +290,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               required
               disabled={saving}
               onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))}
-            />
-          </div>
-          <div className="settings-group">
-            <label htmlFor="edit-location">Location</label>
-            <input
-              id="edit-location"
-              type="text"
-              placeholder="City, state, or country"
-              maxLength={120}
-              value={editForm.location}
-              disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, location: e.target.value }))}
-            />
-          </div>
-          <div className="settings-group">
-            <label htmlFor="edit-bio">Bio</label>
-            <textarea
-              id="edit-bio"
-              className="edit-profile-textarea"
-              rows={4}
-              placeholder="A few lines about you or what you sell"
-              maxLength={500}
-              value={editForm.bio}
-              disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value }))}
             />
           </div>
           <div className="settings-group">
@@ -772,12 +745,15 @@ interface SettingsTabProps {
   onEditProfile: () => void;
   onUpdatePassword: () => void;
   onDeleteAccount: () => void;
+  /** Optional note under Delete account (does not block the button). */
+  deleteAccountNotice?: string | null;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
   onEditProfile,
   onUpdatePassword,
   onDeleteAccount,
+  deleteAccountNotice = null,
 }) => (
   <div className="settings-container">
     <div className="settings-section">
@@ -808,6 +784,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           Delete account
         </button>
       </div>
+      {deleteAccountNotice ? (
+        <p className="settings-inline-hint" role="note">
+          {deleteAccountNotice}
+        </p>
+      ) : null}
     </div>
   </div>
 );

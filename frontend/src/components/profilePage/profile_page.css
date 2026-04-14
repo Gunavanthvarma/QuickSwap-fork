@@ -902,6 +902,14 @@ body {
   color: var(--muted);
 }
 
+.settings-inline-hint {
+  margin: 8px 0 0;
+  max-width: 40rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--muted, #64748b);
+}
+
 .settings-checkbox {
   display: flex;
   align-items: center;

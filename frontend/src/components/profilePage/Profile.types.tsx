@@ -77,8 +77,6 @@ export interface EditFormState {
   first_name: string;
   last_name: string;
   mobile: string;
-  location: string;
-  bio: string;
 }
 
 export interface UpdatePasswordFormState {

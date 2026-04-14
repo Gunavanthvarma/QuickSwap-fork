@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/quickswap/quickswap/internal/auth"
 )
 
@@ -879,8 +880,9 @@ func updatePasswordHandler(_ *auth.Client) http.HandlerFunc {
 // ---- Delete Account ----
 
 // deleteAccountHandler handles DELETE /api/profile/account.
-// Permanently removes the user from Supabase Auth (requires service role key).
-func deleteAccountHandler(_ *auth.Client) http.HandlerFunc {
+// Removes dependent DB rows (bids, notifications) when Postgres is available, then
+// permanently removes the user from Supabase Auth (requires service role key).
+func deleteAccountHandler(_ *auth.Client, pg *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
 			respondError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -891,6 +893,29 @@ func deleteAccountHandler(_ *auth.Client) http.HandlerFunc {
 		if err != nil {
 			respondError(w, err.Error(), http.StatusUnauthorized)
 			return
+		}
+
+		if pg != nil {
+			ctx := r.Context()
+			tx, err := pg.Begin(ctx)
+			if err != nil {
+				respondError(w, "Failed to start account deletion", http.StatusInternalServerError)
+				return
+			}
+			defer func() { _ = tx.Rollback(ctx) }()
+
+			if _, err := tx.Exec(ctx, `DELETE FROM bids WHERE user_id = $1`, userID); err != nil {
+				respondError(w, "Failed to remove bid history: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if _, err := tx.Exec(ctx, `DELETE FROM notifications WHERE user_id = $1`, userID); err != nil {
+				respondError(w, "Failed to remove notifications: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if err := tx.Commit(ctx); err != nil {
+				respondError(w, "Failed to finalize data cleanup", http.StatusInternalServerError)
+				return
+			}
 		}
 
 		svcKey := os.Getenv("SUPABASE_SERVICE_KEY")

@@ -126,7 +126,7 @@ const ProfilePage: React.FC = () => {
         createPortal(
           <DeleteAccountFinalModal
             onNo={closeDeleteAccountFlow}
-            onYes={confirmDeleteAccount}
+            onYes={() => void confirmDeleteAccount()}
             error={deleteAccountError}
             deleting={deletingAccount}
           />,
@@ -168,6 +168,15 @@ const ProfilePage: React.FC = () => {
                 onEditProfile={handleEditOpen}
                 onUpdatePassword={handlePasswordOpen}
                 onDeleteAccount={handleDeleteAccountOpen}
+                deleteAccountNotice={
+                  bidsLoading
+                    ? "Loading your bid history…"
+                    : bidsError
+                      ? "Couldn’t load bid history. You can still try deleting your account, or refresh the page first."
+                      : userBids.length > 0
+                        ? "You have bids on record. Deletion may not succeed until linked bid data is removed—contact support if it fails."
+                        : null
+                }
               />
             )}
           </section>

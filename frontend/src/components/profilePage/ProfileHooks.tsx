@@ -19,6 +19,41 @@ import type {
   MyBidsApiResponse,
 } from "./Profile.types";
 
+/** Maps Supabase/Postgres delete errors to copy users can act on (backend returns raw JSON in `error`). */
+export function formatDeleteAccountApiError(raw: string): string {
+  const fallback = "Could not delete account. Please try again or contact support.";
+  const t = raw.trim();
+  if (!t) return fallback;
+
+  const lower = t.toLowerCase();
+  const mentionsFk =
+    t.includes("23503") ||
+    lower.includes("foreign key constraint") ||
+    lower.includes("violates foreign key");
+
+  let detail = "";
+  const jsonPayload = t.replace(/^Failed to delete account:\s*/i, "").trim();
+  if (jsonPayload.startsWith("{")) {
+    try {
+      const o = JSON.parse(jsonPayload) as { code?: string; message?: string; detail?: string };
+      if (o.code === "23503") {
+        detail = `${o.message ?? ""} ${o.detail ?? ""}`.toLowerCase();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (mentionsFk || detail.includes("foreign") || detail.includes("referenced")) {
+    if (detail.includes("bids") || lower.includes("bids_user_id")) {
+      return "Your account can’t be deleted while bid history is still linked to it. The app can’t remove those records—please contact support to close your account.";
+    }
+    return "Your account can’t be deleted while some of your activity is still linked in our system (for example bids or listings). Please contact support to close your account.";
+  }
+
+  return t.length > 320 ? fallback : t;
+}
+
 export type ProfileFetchOptions = {
   signal?: AbortSignal;
 };
@@ -55,8 +90,6 @@ export const useProfile = () => {
     first_name: "",
     last_name: "",
     mobile: "",
-    location: "",
-    bio: "",
   });
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -144,8 +177,6 @@ export const useProfile = () => {
         first_name: user.first_name || "",
         last_name: user.last_name || "",
         mobile: user.mobile || "",
-        location: user.location || "",
-        bio: user.bio || "",
       });
       setIsEditingProfile(true);
     }
@@ -222,7 +253,9 @@ export const useProfile = () => {
           redirectToSignin();
           return;
         }
-        setDeleteAccountError(apiError || "Could not delete account. Please try again.");
+        setDeleteAccountError(
+          apiError ? formatDeleteAccountApiError(apiError) : "Could not delete account. Please try again.",
+        );
         return;
       }
 
@@ -231,7 +264,7 @@ export const useProfile = () => {
     } catch (err) {
       console.error("[API] /api/profile/account error:", err);
       setDeleteAccountError(
-        err instanceof Error ? err.message : "Could not delete account. Please try again."
+        err instanceof Error ? err.message : "Could not delete account. Please try again.",
       );
     } finally {
       setDeletingAccount(false);
@@ -328,8 +361,8 @@ export const useProfile = () => {
       first_name: editForm.first_name.trim(),
       last_name: editForm.last_name.trim(),
       mobile: editForm.mobile.trim(),
-      location: editForm.location.trim(),
-      bio: editForm.bio.trim(),
+      location: (user.location ?? "").trim(),
+      bio: (user.bio ?? "").trim(),
     };
 
     setProfileSaveError(null);
