@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ApiAddress, ApiPaymentMethod, UiPaymentBrand } from "./Profile.types";
 import { clearLocalAuth, getApiUrl } from "../../utils/authApi";
+import { isValidPostalCode } from "../../utils/validation";
 
 function normalizeAddress(row: Record<string, unknown>): ApiAddress {
   return {
@@ -165,6 +166,52 @@ export const AddressDetailsSection: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [markingDefaultId, setMarkingDefaultId] = useState<string | null>(null);
   const [form, setForm] = useState<AddressFormState>(() => emptyAddressForm(true));
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validateAddressField = (field: string, value: string, countryCode: string = 'US') => {
+    const errors: Record<string, string> = { ...fieldErrors };
+
+    switch (field) {
+      case 'full_name':
+        if (!value.trim()) {
+          errors.full_name = 'Full name is required';
+        } else {
+          delete errors.full_name;
+        }
+        break;
+      case 'street1':
+        if (!value.trim()) {
+          errors.street1 = 'Street address is required';
+        } else {
+          delete errors.street1;
+        }
+        break;
+      case 'city':
+        if (!value.trim()) {
+          errors.city = 'City is required';
+        } else {
+          delete errors.city;
+        }
+        break;
+      case 'country':
+        if (!value.trim()) {
+          errors.country = 'Country is required';
+        } else {
+          delete errors.country;
+        }
+        break;
+      case 'zip':
+        if (value && !isValidPostalCode(value, countryCode)) {
+          errors.zip = `Invalid postal code format for ${countryCode}`;
+        } else {
+          delete errors.zip;
+        }
+        break;
+    }
+
+    setFieldErrors(errors);
+    return errors;
+  };
 
   const loadAddresses = useCallback(async (opts?: { quiet?: boolean }) => {
     setListError(null);
@@ -216,6 +263,17 @@ export const AddressDetailsSection: React.FC = () => {
     setModalError(null);
   };
 
+  React.useEffect(() => {
+    if (!modalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [modalOpen, saving]);
+
   const payloadFromForm = (f: AddressFormState) => ({
     full_name: f.full_name.trim(),
     street1: f.street1.trim(),
@@ -230,11 +288,22 @@ export const AddressDetailsSection: React.FC = () => {
   const saveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
-    const body = payloadFromForm(form);
-    if (!body.full_name || !body.street1 || !body.city || !body.country) {
-      setModalError("Full name, address line 1, city, and country are required.");
+
+    // Validate all required fields
+    const errors = {
+      ...validateAddressField('full_name', form.full_name),
+      ...validateAddressField('street1', form.street1),
+      ...validateAddressField('city', form.city),
+      ...validateAddressField('country', form.country),
+      ...validateAddressField('zip', form.zip, form.country || 'US'),
+    };
+
+    if (Object.keys(errors).length > 0) {
+      setModalError("Please fix the errors above before saving.");
       return;
     }
+
+    const body = payloadFromForm(form);
 
     setSaving(true);
     try {
@@ -394,22 +463,38 @@ export const AddressDetailsSection: React.FC = () => {
                   <input
                     id="addr-name"
                     value={form.full_name}
-                    onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, full_name: e.target.value }));
+                      validateAddressField('full_name', e.target.value);
+                    }}
                     required
                     disabled={saving}
                     autoComplete="name"
+                    aria-invalid={!!fieldErrors.full_name}
+                    aria-describedby={fieldErrors.full_name ? 'error-addr-name' : undefined}
                   />
+                  {fieldErrors.full_name && (
+                    <span id="error-addr-name" className="field-error">{fieldErrors.full_name}</span>
+                  )}
                 </div>
                 <div className="settings-group">
                   <label htmlFor="addr-line1">Address line 1 *</label>
                   <input
                     id="addr-line1"
                     value={form.street1}
-                    onChange={(e) => setForm((f) => ({ ...f, street1: e.target.value }))}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, street1: e.target.value }));
+                      validateAddressField('street1', e.target.value);
+                    }}
                     required
                     disabled={saving}
                     autoComplete="street-address"
+                    aria-invalid={!!fieldErrors.street1}
+                    aria-describedby={fieldErrors.street1 ? 'error-addr-line1' : undefined}
                   />
+                  {fieldErrors.street1 && (
+                    <span id="error-addr-line1" className="field-error">{fieldErrors.street1}</span>
+                  )}
                 </div>
                 <div className="settings-group">
                   <label htmlFor="addr-line2">Address line 2</label>
@@ -425,10 +510,18 @@ export const AddressDetailsSection: React.FC = () => {
                   <input
                     id="addr-city"
                     value={form.city}
-                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, city: e.target.value }));
+                      validateAddressField('city', e.target.value);
+                    }}
                     required
                     disabled={saving}
+                    aria-invalid={!!fieldErrors.city}
+                    aria-describedby={fieldErrors.city ? 'error-addr-city' : undefined}
                   />
+                  {fieldErrors.city && (
+                    <span id="error-addr-city" className="field-error">{fieldErrors.city}</span>
+                  )}
                 </div>
                 <div className="settings-address-row">
                   <div className="settings-group">
@@ -445,9 +538,17 @@ export const AddressDetailsSection: React.FC = () => {
                     <input
                       id="addr-zip"
                       value={form.zip}
-                      onChange={(e) => setForm((f) => ({ ...f, zip: e.target.value }))}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, zip: e.target.value }));
+                        validateAddressField('zip', e.target.value, form.country || 'US');
+                      }}
                       disabled={saving}
+                      aria-invalid={!!fieldErrors.zip}
+                      aria-describedby={fieldErrors.zip ? 'error-addr-zip' : undefined}
                     />
+                    {fieldErrors.zip && (
+                      <span id="error-addr-zip" className="field-error">{fieldErrors.zip}</span>
+                    )}
                   </div>
                 </div>
                 <div className="settings-group">
@@ -455,11 +556,19 @@ export const AddressDetailsSection: React.FC = () => {
                   <input
                     id="addr-country"
                     value={form.country}
-                    onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, country: e.target.value }));
+                      validateAddressField('country', e.target.value);
+                    }}
                     required
                     disabled={saving}
                     autoComplete="country-name"
+                    aria-invalid={!!fieldErrors.country}
+                    aria-describedby={fieldErrors.country ? 'error-addr-country' : undefined}
                   />
+                  {fieldErrors.country && (
+                    <span id="error-addr-country" className="field-error">{fieldErrors.country}</span>
+                  )}
                 </div>
                 <label className="settings-checkbox">
                   <input
@@ -529,6 +638,17 @@ export const PaymentDetailsSection: React.FC = () => {
     setModalOpen(false);
     setModalError(null);
   };
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [modalOpen, saving]);
 
   const parseExpiryYear = (raw: string): number => {
     const digits = raw.replace(/\D/g, "");

@@ -58,6 +58,14 @@ export type ProfileFetchOptions = {
   signal?: AbortSignal;
 };
 
+const TIMEOUT_MS = 10000;
+
+function createAbortSignal(): [AbortSignal, ReturnType<typeof setTimeout>] {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  return [controller.signal, timeoutId];
+}
+
 function mergeProfileFromApi(base: ProfileResponse, row: Record<string, unknown>): ProfileResponse {
   const out: ProfileResponse = { ...base };
   const pickStr = (k: string): string | undefined =>
@@ -136,24 +144,35 @@ export const useProfile = () => {
 
         if (!cancelled) setUser(parsed);
 
-        const res = await fetch(getApiUrl("/api/profile"), {
-          method: "GET",
-          headers: authHeaders(token),
-        });
+        const [signal, timeoutId] = createAbortSignal();
+        try {
+          const res = await fetch(getApiUrl("/api/profile"), {
+            method: "GET",
+            headers: authHeaders(token),
+            signal,
+          });
+          clearTimeout(timeoutId);
 
-        if (res.status === 401) {
-          notifyAuthSessionExpired();
-          redirectToSignin();
-          return;
-        }
-
-        if (!cancelled && res.ok) {
-          const row: unknown = await res.json().catch(() => null);
-          if (row && typeof row === "object" && !Array.isArray(row)) {
-            const merged = mergeProfileFromApi(parsed, row as Record<string, unknown>);
-            setUser(merged);
-            localStorage.setItem("user", JSON.stringify(merged));
+          if (res.status === 401) {
+            notifyAuthSessionExpired();
+            redirectToSignin();
+            return;
           }
+
+          if (!cancelled && res.ok) {
+            const row: unknown = await res.json().catch(() => null);
+            if (row && typeof row === "object" && !Array.isArray(row)) {
+              const merged = mergeProfileFromApi(parsed, row as Record<string, unknown>);
+              setUser(merged);
+              localStorage.setItem("user", JSON.stringify(merged));
+            }
+          }
+        } catch (err) {
+          clearTimeout(timeoutId);
+          if (err instanceof Error && err.name === 'AbortError') {
+            throw new Error('Request timed out. Please check your connection and try again.');
+          }
+          throw err;
         }
       } catch (err: unknown) {
         console.error("Failed to load profile:", err);
@@ -228,6 +247,8 @@ export const useProfile = () => {
     }
 
     setDeletingAccount(true);
+    const [signal, timeoutId] = createAbortSignal();
+
     try {
       const response = await fetch(getApiUrl("/api/profile/account"), {
         method: "DELETE",
@@ -235,7 +256,10 @@ export const useProfile = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json().catch(() => ({}));
       const apiError =
@@ -262,11 +286,17 @@ export const useProfile = () => {
       closeDeleteAccountFlow();
       redirectToSignin();
     } catch (err) {
-      console.error("[API] /api/profile/account error:", err);
-      setDeleteAccountError(
-        err instanceof Error ? err.message : "Could not delete account. Please try again.",
-      );
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setDeleteAccountError("Request timed out. Please check your connection and try again.");
+      } else {
+        console.error("[API] /api/profile/account error:", err);
+        setDeleteAccountError(
+          err instanceof Error ? err.message : "Could not delete account. Please try again.",
+        );
+      }
     } finally {
+      clearTimeout(timeoutId);
       setDeletingAccount(false);
     }
   };
@@ -297,6 +327,8 @@ export const useProfile = () => {
     }
 
     setSavingPassword(true);
+    const [signal, timeoutId] = createAbortSignal();
+
     try {
       const response = await fetch(getApiUrl("/api/profile/password"), {
         method: "PUT",
@@ -309,7 +341,10 @@ export const useProfile = () => {
           new_password: newPw,
           re_enter_new_password: confirmPw,
         }),
+        signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json().catch(() => ({}));
       const apiError =
@@ -338,12 +373,18 @@ export const useProfile = () => {
 
       return true;
     } catch (err) {
-      console.error("[API] /api/profile/password error:", err);
-      setPasswordUpdateError(
-        err instanceof Error ? err.message : "Failed to update password"
-      );
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setPasswordUpdateError("Request timed out. Please check your connection and try again.");
+      } else {
+        console.error("[API] /api/profile/password error:", err);
+        setPasswordUpdateError(
+          err instanceof Error ? err.message : "Failed to update password"
+        );
+      }
       return false;
     } finally {
+      clearTimeout(timeoutId);
       setSavingPassword(false);
     }
   };
@@ -367,6 +408,8 @@ export const useProfile = () => {
 
     setProfileSaveError(null);
     setSavingProfile(true);
+    const [signal, timeoutId] = createAbortSignal();
+
     try {
       const response = await fetch(getApiUrl("/api/profile/update"), {
         method: "PUT",
@@ -375,7 +418,10 @@ export const useProfile = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
+        signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -400,12 +446,18 @@ export const useProfile = () => {
       localStorage.setItem("user", JSON.stringify(updatedUser));
       return true;
     } catch (err) {
-      console.error("[API] /api/profile/update error:", err);
-      setProfileSaveError(
-        err instanceof Error ? err.message : "Failed to update profile"
-      );
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setProfileSaveError("Request timed out. Please check your connection and try again.");
+      } else {
+        console.error("[API] /api/profile/update error:", err);
+        setProfileSaveError(
+          err instanceof Error ? err.message : "Failed to update profile"
+        );
+      }
       return false;
     } finally {
+      clearTimeout(timeoutId);
       setSavingProfile(false);
     }
   };
@@ -461,9 +513,19 @@ export const useMyListings = () => {
   const redirectToSignin = useSignInRedirect();
 
   const fetchMyListings = useCallback(async (options?: ProfileFetchOptions) => {
-    const { signal } = options ?? {};
+    let externalSignal = options?.signal;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    // Create timeout signal if not provided
+    const [signal, newTimeoutId] = createAbortSignal();
+    if (!externalSignal) {
+      externalSignal = signal;
+      timeoutId = newTimeoutId;
+    }
+
     const token = localStorage.getItem("accessToken");
     if (!token) {
+      if (timeoutId) clearTimeout(timeoutId);
       redirectToSignin();
       return;
     }
@@ -475,8 +537,10 @@ export const useMyListings = () => {
       const response = await fetch(getApiUrl("/api/mylistings"), {
         method: "GET",
         headers: authHeaders(token),
-        signal,
+        signal: externalSignal,
       });
+
+      if (timeoutId) clearTimeout(timeoutId);
 
       const rawJson: unknown = await response.json().catch(() => ({}));
       if (response.status === 401) {
@@ -484,6 +548,19 @@ export const useMyListings = () => {
         redirectToSignin();
         return;
       }
+
+      // Handle "no listings found" as success with empty array
+      if (response.status === 404) {
+        const errorMsg = typeof rawJson === 'object' && rawJson !== null && 'error' in rawJson
+          ? (rawJson as { error?: string }).error
+          : '';
+        if (errorMsg?.toLowerCase().includes('no listings')) {
+          setUserListings([]);
+          return;
+        }
+        throw new Error(errorMsg || "Listing not found");
+      }
+
       if (!response.ok) {
         throw new Error(apiErrorMessage(rawJson, "Failed to fetch listings"));
       }
@@ -503,14 +580,19 @@ export const useMyListings = () => {
 
       setUserListings(listings);
     } catch (err: unknown) {
-      if (isFetchAborted(err)) return;
-      console.error("[API] /api/mylistings error:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch listings");
+      if (timeoutId) clearTimeout(timeoutId);
+      if (isFetchAborted(err) && !timeoutId) return;
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.error("[API] /api/mylistings timeout:", err);
+        setError("Request timed out. Please check your connection and try again.");
+      } else {
+        console.error("[API] /api/mylistings error:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch listings");
+      }
       setUserListings([]);
     } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
+      setLoading(false);
     }
   }, [redirectToSignin]);
 
@@ -526,9 +608,19 @@ export const useMyBids = () => {
   const redirectToSignin = useSignInRedirect();
 
   const fetchMyBids = useCallback(async (options?: ProfileFetchOptions) => {
-    const { signal } = options ?? {};
+    let externalSignal = options?.signal;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    // Create timeout signal if not provided
+    const [signal, newTimeoutId] = createAbortSignal();
+    if (!externalSignal) {
+      externalSignal = signal;
+      timeoutId = newTimeoutId;
+    }
+
     const token = localStorage.getItem("accessToken");
     if (!token) {
+      if (timeoutId) clearTimeout(timeoutId);
       redirectToSignin();
       return;
     }
@@ -540,8 +632,10 @@ export const useMyBids = () => {
       const response = await fetch(getApiUrl("/api/mybids"), {
         method: "GET",
         headers: authHeaders(token),
-        signal,
+        signal: externalSignal,
       });
+
+      if (timeoutId) clearTimeout(timeoutId);
 
       const rawJson: unknown = await response.json().catch(() => ({}));
       if (response.status === 401) {
@@ -549,6 +643,19 @@ export const useMyBids = () => {
         redirectToSignin();
         return;
       }
+
+      // Handle "no bids found" as success with empty array
+      if (response.status === 404) {
+        const errorMsg = typeof rawJson === 'object' && rawJson !== null && 'error' in rawJson
+          ? (rawJson as { error?: string }).error
+          : '';
+        if (errorMsg?.toLowerCase().includes('no bids')) {
+          setUserBids([]);
+          return;
+        }
+        throw new Error(errorMsg || "Bids not found");
+      }
+
       if (!response.ok) {
         throw new Error(apiErrorMessage(rawJson, "Failed to fetch bids"));
       }
@@ -581,14 +688,19 @@ export const useMyBids = () => {
 
       setUserBids(bids);
     } catch (err: unknown) {
-      if (isFetchAborted(err)) return;
-      console.error("[API] /api/mybids error:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch bids");
+      if (timeoutId) clearTimeout(timeoutId);
+      if (isFetchAborted(err) && !timeoutId) return;
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.error("[API] /api/mybids timeout:", err);
+        setError("Request timed out. Please check your connection and try again.");
+      } else {
+        console.error("[API] /api/mybids error:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch bids");
+      }
       setUserBids([]);
     } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
+      setLoading(false);
     }
   }, [redirectToSignin]);
 

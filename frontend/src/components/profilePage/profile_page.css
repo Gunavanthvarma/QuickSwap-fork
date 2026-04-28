@@ -134,6 +134,47 @@ body {
   background-color: #e5e7eb;
 }
 
+.navbar-link-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Mobile hamburger menu */
+.navbar-hamburger {
+  display: none;
+  flex-direction: column;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  gap: 4px;
+  grid-column: 2;
+}
+
+.navbar-hamburger span {
+  width: 24px;
+  height: 2px;
+  background: var(--text);
+  transition: all 200ms ease-out;
+}
+
+.navbar-hamburger[aria-expanded="true"] span:nth-child(1) {
+  transform: rotate(45deg) translate(10px, 10px);
+}
+
+.navbar-hamburger[aria-expanded="true"] span:nth-child(2) {
+  opacity: 0;
+}
+
+.navbar-hamburger[aria-expanded="true"] span:nth-child(3) {
+  transform: rotate(-45deg) translate(7px, -7px);
+}
+
+.navbar-hamburger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .navbar-logo {
   display: flex;
   align-items: center;
@@ -980,6 +1021,19 @@ body {
   border-color: var(--primary);
 }
 
+.settings-group input[aria-invalid="true"] {
+  border-color: var(--error);
+  background-color: var(--error-soft);
+}
+
+.field-error {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--error);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
 .settings-group.inline {
   display: flex;
   justify-content: space-between;
@@ -1185,11 +1239,38 @@ body {
 /* Responsive */
 @media (max-width: 768px) {
   .profile-navbar {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
+  }
+
+  .navbar-hamburger {
+    display: flex;
   }
 
   .profile-navbar .navbar-links {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(249, 250, 251, 0.98);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--border);
+    flex-direction: column;
+    padding: 12px;
+    gap: 8px;
+    border-radius: 0 0 12px 12px;
+    z-index: 10;
+  }
+
+  .profile-navbar .navbar-links.mobile-open {
+    display: flex;
+  }
+
+  .profile-navbar .navbar-link-button {
+    width: 100%;
+    text-align: left;
+    padding: 12px 16px;
+    border-radius: 8px;
   }
 
   .profile-header-top {
