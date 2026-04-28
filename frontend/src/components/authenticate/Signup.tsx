@@ -17,8 +17,10 @@ import AuthLayout from './AuthLayout';
 import './authenticate.css';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
+import { useToast } from '../shared';
 import type { ProfileResponse } from '../profilePage/Profile.types';
 import { authHeaders, getApiUrl } from '../../lib/api';
+import { isValidEmail, isValidPhone, validatePassword } from '../../utils/validation';
 
 interface FormData {
   firstName: string;
@@ -41,6 +43,7 @@ interface FormErrors {
 const Signup: React.FC = () => {
   const navigate = useNavigate();
   const { refreshUser } = useAuth();
+  const { error: showError, success: showSuccess } = useToast();
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -77,16 +80,13 @@ const Signup: React.FC = () => {
       newErrors.lastName = 'Last name is required';
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (!isValidEmail(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+      newErrors.password = passwordValidation.feedback[0] || 'Invalid password';
     }
 
     if (!formData.confirmPassword) {
@@ -95,9 +95,7 @@ const Signup: React.FC = () => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
-    if (!formData.mobile.trim()) {
-      newErrors.mobile = 'Mobile number is required';
-    } else if (!/^[\d\s\-+()]{10,}$/.test(formData.mobile)) {
+    if (!isValidPhone(formData.mobile)) {
       newErrors.mobile = 'Please enter a valid mobile number';
     }
 
@@ -114,89 +112,107 @@ const Signup: React.FC = () => {
       setLoading(true);
       setApiError(null);
 
-      const response = await fetch(getApiUrl('/api/auth/signup'), {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          first_name: formData.firstName.trim(),
-          last_name: formData.lastName.trim(),
-          email: formData.email.trim(),
-          password: formData.password,
-          mobile: formData.mobile.trim(),
-        }),
-      });
-      const parsed = (await response.json()) as Record<string, unknown>;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      if (!response.ok || parsed.error) {
-        const msg = typeof parsed.error === 'string' ? parsed.error : 'Signup failed';
-        throw new Error(msg);
-      }
+      try {
+        const response = await fetch(getApiUrl('/api/auth/signup'), {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            first_name: formData.firstName.trim(),
+            last_name: formData.lastName.trim(),
+            email: formData.email.trim(),
+            password: formData.password,
+            mobile: formData.mobile.trim(),
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
 
-      // If backend auto-logs in user, accept either { session: {...} } or flat token fields
-      const session =
-        parsed.session && typeof parsed.session === 'object'
-          ? (parsed.session as {
-              access_token?: string;
-              refresh_token?: string;
-              expires_in?: number;
-              user?: unknown;
-            })
-          : parsed.access_token
-            ? {
-                access_token: parsed.access_token as string,
-                refresh_token: parsed.refresh_token as string,
-                expires_in: parsed.expires_in as number,
-                user: parsed.user,
-              }
-            : null;
+        const parsed = (await response.json()) as Record<string, unknown>;
 
-      if (session?.access_token) {
-        const { access_token, user } = session;
-        const refresh_token =
-          typeof session.refresh_token === 'string' ? session.refresh_token : '';
-        const expires_in =
-          typeof session.expires_in === 'number' ? session.expires_in : 0;
-
-        localStorage.setItem('accessToken', access_token);
-        localStorage.setItem('refreshToken', refresh_token);
-        localStorage.setItem(
-          'accessTokenExpiry',
-          (Date.now() + expires_in * 1000).toString()
-        );
-
-        try {
-          const profileRes = await fetch(getApiUrl('/api/profile'), {
-            method: 'GET',
-            headers: authHeaders(access_token),
-          });
-          if (profileRes.ok) {
-            const profileRaw: unknown = await profileRes.json();
-            const profileData = profileRaw as ProfileResponse;
-            localStorage.setItem('user', JSON.stringify(profileData));
-          } else {
-            localStorage.setItem('user', JSON.stringify(user));
-          }
-        } catch {
-          localStorage.setItem('user', JSON.stringify(user));
+        if (!response.ok || parsed.error) {
+          const msg = typeof parsed.error === 'string' ? parsed.error : 'Signup failed';
+          throw new Error(msg);
         }
 
-        refreshUser();
-        navigate('/', { replace: true });
-        return;
+        // If backend auto-logs in user, accept either { session: {...} } or flat token fields
+        const session =
+          parsed.session && typeof parsed.session === 'object'
+            ? (parsed.session as {
+                access_token?: string;
+                refresh_token?: string;
+                expires_in?: number;
+                user?: unknown;
+              })
+            : parsed.access_token
+              ? {
+                  access_token: parsed.access_token as string,
+                  refresh_token: parsed.refresh_token as string,
+                  expires_in: parsed.expires_in as number,
+                  user: parsed.user,
+                }
+              : null;
+
+        if (session?.access_token) {
+          const { access_token, user } = session;
+          const refresh_token =
+            typeof session.refresh_token === 'string' ? session.refresh_token : '';
+          const expires_in =
+            typeof session.expires_in === 'number' ? session.expires_in : 0;
+
+          localStorage.setItem('accessToken', access_token);
+          localStorage.setItem('refreshToken', refresh_token);
+          localStorage.setItem(
+            'accessTokenExpiry',
+            (Date.now() + expires_in * 1000).toString()
+          );
+
+          try {
+            const profileRes = await fetch(getApiUrl('/api/profile'), {
+              method: 'GET',
+              headers: authHeaders(access_token),
+              signal: controller.signal,
+            });
+            if (profileRes.ok) {
+              const profileRaw: unknown = await profileRes.json();
+              const profileData = profileRaw as ProfileResponse;
+              localStorage.setItem('user', JSON.stringify(profileData));
+            } else {
+              localStorage.setItem('user', JSON.stringify(user));
+            }
+          } catch {
+            localStorage.setItem('user', JSON.stringify(user));
+          }
+
+          showSuccess('Account created successfully!', 3000);
+          refreshUser();
+          navigate('/', { replace: true });
+          return;
+        }
+
+        // No session: signup likely requires email confirmation
+        const successMsg =
+          (typeof parsed.message === 'string' && parsed.message) ||
+          (typeof parsed.msg === 'string' && parsed.msg) ||
+          'Account created successfully. Please sign in.';
+        showSuccess(successMsg, 4000);
+        navigate('/signin', {
+          replace: true,
+          state: { signupSuccessMessage: successMsg },
+        });
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw new Error('Request timed out. Please check your connection and try again.');
+        }
+        throw err;
       }
-
-      // No session: signup likely requires email confirmation — message shown on Sign in page
-      const successMsg =
-        (typeof parsed.message === 'string' && parsed.message) ||
-        (typeof parsed.msg === 'string' && parsed.msg) ||
-        'Account created successfully. Please sign in.';
-      navigate('/signin', {
-        replace: true,
-        state: { signupSuccessMessage: successMsg },
-      });
-
     } catch (err: unknown) {
-      setApiError(err instanceof Error ? err.message : 'Signup failed');
+      const errorMsg = err instanceof Error ? err.message : 'Signup failed';
+      setApiError(errorMsg);
+      showError(errorMsg, 5000);
     } finally {
       setLoading(false);
     }

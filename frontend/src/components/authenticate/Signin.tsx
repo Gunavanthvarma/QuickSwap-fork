@@ -16,9 +16,11 @@ import AuthLayout from './AuthLayout';
 import './authenticate.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
+import { useToast } from '../shared';
 import { getSafeReturnPath, type SigninRedirectState } from '../../auth/signinRedirect';
 import type { ProfileResponse } from '../profilePage/Profile.types';
 import { authHeaders, getApiUrl } from '../../lib/api';
+import { isValidEmail } from '../../utils/validation';
 
 interface SignInFormData {
   email: string;
@@ -54,6 +56,7 @@ const Signin: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { refreshUser, isAuthenticated } = useAuth();
+  const { error: showError, success: showSuccess } = useToast();
   const [formData, setFormData] = useState<SignInFormData>({
     email: '',
     password: '',
@@ -95,9 +98,7 @@ const Signin: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: SignInFormErrors = {};
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (!isValidEmail(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
@@ -117,65 +118,82 @@ const Signin: React.FC = () => {
     try {
       setLoading(true);
       setApiError(null);
-      const response = await fetch(getApiUrl('/api/auth/login'), {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-          rememberMe: formData.rememberMe,
-        }),
-      });
 
-      const raw: unknown = await response.json();
-      const data = raw as AuthResponse;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      if (!response.ok || data.error) {
-        throw new Error(data.error || 'Login failed');
-      }
-
-      if (!data.session) {
-        throw new Error('Invalid server response');
-      }
-
-      const { access_token, refresh_token, expires_in, user } = data.session;
-
-      // Store refresh token (persistent)
-      localStorage.setItem('refreshToken', refresh_token);
-
-      // Store access token expiry time
-      localStorage.setItem(
-        'accessTokenExpiry',
-        (Date.now() + expires_in * 1000).toString()
-      );
-
-      // Store access token (if you don't have AuthContext yet)
-      localStorage.setItem('accessToken', access_token);
-
-      // Optional: store user
       try {
-        const profileRes = await fetch(getApiUrl('/api/profile'), {
-          method: 'GET',
-          headers: authHeaders(access_token),
+        const response = await fetch(getApiUrl('/api/auth/login'), {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            email: formData.email.trim(),
+            password: formData.password,
+            rememberMe: formData.rememberMe,
+          }),
+          signal: controller.signal,
         });
-        if (profileRes.ok) {
-          const profileRaw: unknown = await profileRes.json();
-          const profileData = profileRaw as ProfileResponse;
-          localStorage.setItem('user', JSON.stringify(profileData));
-        } else {
+        clearTimeout(timeoutId);
+
+        const raw: unknown = await response.json();
+        const data = raw as AuthResponse;
+
+        if (!response.ok || data.error) {
+          throw new Error(data.error || 'Login failed');
+        }
+
+        if (!data.session) {
+          throw new Error('Invalid server response');
+        }
+
+        const { access_token, refresh_token, expires_in, user } = data.session;
+
+        // Store refresh token (persistent)
+        localStorage.setItem('refreshToken', refresh_token);
+
+        // Store access token expiry time
+        localStorage.setItem(
+          'accessTokenExpiry',
+          (Date.now() + expires_in * 1000).toString()
+        );
+
+        // Store access token (if you don't have AuthContext yet)
+        localStorage.setItem('accessToken', access_token);
+
+        // Optional: store user
+        try {
+          const profileRes = await fetch(getApiUrl('/api/profile'), {
+            method: 'GET',
+            headers: authHeaders(access_token),
+            signal: controller.signal,
+          });
+          if (profileRes.ok) {
+            const profileRaw: unknown = await profileRes.json();
+            const profileData = profileRaw as ProfileResponse;
+            localStorage.setItem('user', JSON.stringify(profileData));
+          } else {
+            localStorage.setItem('user', JSON.stringify(user));
+          }
+        } catch {
           localStorage.setItem('user', JSON.stringify(user));
         }
-      } catch {
-        localStorage.setItem('user', JSON.stringify(user));
+
+        showSuccess('Signed in successfully!', 3000);
+        refreshUser();
+        navigate(getSafeReturnPath(location.state as SigninRedirectState | null), {
+          replace: true,
+        });
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name === 'AbortError') {
+          throw new Error('Request timed out. Please check your connection and try again.');
+        }
+        throw err;
       }
-
-      refreshUser();
-      navigate(getSafeReturnPath(location.state as SigninRedirectState | null), {
-        replace: true,
-      });
-
     } catch (err: unknown) {
-      setApiError(err instanceof Error ? err.message : 'Login failed');
+      const errorMsg = err instanceof Error ? err.message : 'Login failed';
+      setApiError(errorMsg);
+      showError(errorMsg, 5000);
     } finally {
       setLoading(false);
     }

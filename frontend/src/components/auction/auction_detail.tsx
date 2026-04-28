@@ -4,7 +4,7 @@ import { useAuth } from "../../auth/useAuth";
 import { apiErrorMessage, authHeaders, getApiUrl, getSSEUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { deleteListing } from "../../lib/listingApi";
 import { formatCurrency } from "../../lib/format";
-import { LoadingSpinner, ErrorAlert } from "../shared";
+import { LoadingSpinner, ErrorAlert, OptimizedImage } from "../shared";
 import {
   computeServerSkewMs,
   formatCountdown,
@@ -408,18 +408,48 @@ const AuctionDetail: React.FC = () => {
         Back to results
       </button>
 
+      <nav className="auction-breadcrumb" aria-label="Breadcrumb">
+        <ol className="breadcrumb-list">
+          <li>
+            <button
+              type="button"
+              className="breadcrumb-link"
+              onClick={() => navigate("/")}
+            >
+              Home
+            </button>
+          </li>
+          <li>
+            <span className="breadcrumb-separator">/</span>
+            <button
+              type="button"
+              className="breadcrumb-link"
+              onClick={() => navigate("/explore/trending")}
+            >
+              Auctions
+            </button>
+          </li>
+          <li>
+            <span className="breadcrumb-separator">/</span>
+            <span className="breadcrumb-current" aria-current="page">
+              {title || "Loading..."}
+            </span>
+          </li>
+        </ol>
+      </nav>
+
       <main id="main-content">
       <div className="auction-layout">
         <section className="auction-gallery" aria-label="Listing images">
           <div className="auction-main-image">
             {selectedImage ? (
-              <img
+              <OptimizedImage
                 src={selectedImage}
                 alt={title}
                 width={800}
                 height={533}
-                loading="eager"
-                decoding="async"
+                priority
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 70vw, 600px"
               />
             ) : (
               <div className="auction-empty-image">No image available</div>
@@ -436,7 +466,13 @@ const AuctionDetail: React.FC = () => {
                   aria-label={thumbLabel(index)}
                   aria-pressed={selectedImage === img}
                 >
-                  <img src={img} alt="" width={70} height={70} loading="lazy" decoding="async" />
+                  <OptimizedImage
+                    src={img}
+                    alt=""
+                    width={70}
+                    height={70}
+                    sizes="70px"
+                  />
                 </button>
               ))}
             </div>

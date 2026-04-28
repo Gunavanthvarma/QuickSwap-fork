@@ -4,6 +4,8 @@ import { deleteListing } from "../../lib/listingApi";
 import { NotificationsBell } from "../notifications/NotificationsBell";
 import { AddressDetailsSection, PaymentDetailsSection } from "./SettingsAddressPayment";
 import { StripEmptyStateView } from "../landingPage/top_listings_strip";
+import { OptimizedImage } from "../shared";
+import { isValidPhone } from "../../utils/validation";
 import type {
   ProfileResponse,
   EditFormState,
@@ -17,6 +19,12 @@ import type {
 
 export const ProfileNavbar: React.FC = () => {
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   return (
     <header className="profile-navbar">
       <div className="profile-navbar-left">
@@ -25,10 +33,21 @@ export const ProfileNavbar: React.FC = () => {
           <span className="logo-text">Quickswap</span>
         </div>
       </div>
-      <nav className="navbar-links" aria-label="Profile">
-        <button type="button" className="navbar-link-button" onClick={() => navigate("/")}>Browse</button>
-        <button type="button" className="navbar-link-button" onClick={() => navigate("/start_selling")}>Sell</button>
-        <button type="button" className="navbar-link-button active" onClick={() => navigate("/profile")}>Profile</button>
+      <button
+        type="button"
+        className="navbar-hamburger"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        aria-label="Toggle navigation menu"
+        aria-expanded={mobileMenuOpen}
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <nav className={`navbar-links ${mobileMenuOpen ? 'mobile-open' : ''}`} aria-label="Profile" role="navigation">
+        <button type="button" className="navbar-link-button" onClick={() => { navigate("/"); closeMobileMenu(); }}>Browse</button>
+        <button type="button" className="navbar-link-button" onClick={() => { navigate("/start_selling"); closeMobileMenu(); }}>Sell</button>
+        <button type="button" className="navbar-link-button active" onClick={() => { navigate("/profile"); closeMobileMenu(); }}>Profile</button>
       </nav>
       <div className="navbar-actions">
         <NotificationsBell />
@@ -219,9 +238,60 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   saving = false,
 }) => {
   const [showSuccess, setShowSuccess] = React.useState(false);
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+
+  const validateField = (field: string, value: string) => {
+    const errors: Record<string, string> = { ...fieldErrors };
+
+    switch (field) {
+      case 'first_name':
+        if (!value.trim()) {
+          errors.first_name = 'First name is required';
+        } else {
+          delete errors.first_name;
+        }
+        break;
+      case 'last_name':
+        if (!value.trim()) {
+          errors.last_name = 'Last name is required';
+        } else {
+          delete errors.last_name;
+        }
+        break;
+      case 'mobile':
+        if (!value.trim()) {
+          errors.mobile = 'Phone number is required';
+        } else if (!isValidPhone(value)) {
+          errors.mobile = 'Please enter a valid phone number (10-15 digits)';
+        } else {
+          delete errors.mobile;
+        }
+        break;
+    }
+
+    setFieldErrors(errors);
+    return errors;
+  };
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, saving]);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validate all fields before submit
+    const allErrors = {
+      ...validateField('first_name', editForm.first_name),
+      ...validateField('last_name', editForm.last_name),
+      ...validateField('mobile', editForm.mobile),
+    };
+    if (Object.keys(allErrors).length > 0) return;
     const ok = await onSubmit(e);
     if (ok) setShowSuccess(true);
   };
@@ -267,8 +337,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={editForm.first_name}
               required
               disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))}
+              onChange={(e) => {
+                setEditForm((prev) => ({ ...prev, first_name: e.target.value }));
+                validateField('first_name', e.target.value);
+              }}
+              aria-invalid={!!fieldErrors.first_name}
+              aria-describedby={fieldErrors.first_name ? 'error-first-name' : undefined}
             />
+            {fieldErrors.first_name && (
+              <span id="error-first-name" className="field-error">{fieldErrors.first_name}</span>
+            )}
           </div>
           <div className="settings-group">
             <label htmlFor="edit-last-name">Last Name</label>
@@ -278,8 +356,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={editForm.last_name}
               required
               disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))}
+              onChange={(e) => {
+                setEditForm((prev) => ({ ...prev, last_name: e.target.value }));
+                validateField('last_name', e.target.value);
+              }}
+              aria-invalid={!!fieldErrors.last_name}
+              aria-describedby={fieldErrors.last_name ? 'error-last-name' : undefined}
             />
+            {fieldErrors.last_name && (
+              <span id="error-last-name" className="field-error">{fieldErrors.last_name}</span>
+            )}
           </div>
           <div className="settings-group">
             <label htmlFor="edit-mobile">Phone number</label>
@@ -289,8 +375,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={editForm.mobile}
               required
               disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))}
+              onChange={(e) => {
+                setEditForm((prev) => ({ ...prev, mobile: e.target.value }));
+                validateField('mobile', e.target.value);
+              }}
+              aria-invalid={!!fieldErrors.mobile}
+              aria-describedby={fieldErrors.mobile ? 'error-mobile' : undefined}
             />
+            {fieldErrors.mobile && (
+              <span id="error-mobile" className="field-error">{fieldErrors.mobile}</span>
+            )}
           </div>
           <div className="settings-group">
             <label htmlFor="edit-email-readonly">Email address</label>
@@ -334,6 +428,16 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
   saving = false,
 }) => {
   const [showSuccess, setShowSuccess] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving && !showSuccess) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, saving, showSuccess]);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,38 +546,50 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   phraseError,
   onKeep,
   onDelete,
-}) => (
-  <div className="edit-profile-modal-overlay">
-    <div className="edit-profile-modal-content">
-      <h2>Delete account</h2>
-      <p className="delete-account-prompt">Are you sure you want to delete the account?</p>
-      <div className="settings-group">
-        <label htmlFor="delete-account-confirm">Type <strong>Delete</strong> to confirm</label>
-        <input
-          id="delete-account-confirm"
-          type="text"
-          autoComplete="off"
-          value={confirmPhrase}
-          onChange={(e) => setConfirmPhrase(e.target.value)}
-          placeholder="Delete"
-        />
-      </div>
-      {phraseError ? (
-        <p className="edit-profile-error" role="alert">
-          {phraseError}
-        </p>
-      ) : null}
-      <div className="edit-profile-actions">
-        <button type="button" className="btn ghost" onClick={onKeep}>
-          Keep
-        </button>
-        <button type="button" className="btn danger" onClick={onDelete}>
-          Delete
-        </button>
+}) => {
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onKeep();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onKeep]);
+
+  return (
+    <div className="edit-profile-modal-overlay">
+      <div className="edit-profile-modal-content">
+        <h2>Delete account</h2>
+        <p className="delete-account-prompt">Are you sure you want to delete the account?</p>
+        <div className="settings-group">
+          <label htmlFor="delete-account-confirm">Type <strong>Delete</strong> to confirm</label>
+          <input
+            id="delete-account-confirm"
+            type="text"
+            autoComplete="off"
+            value={confirmPhrase}
+            onChange={(e) => setConfirmPhrase(e.target.value)}
+            placeholder="Delete"
+          />
+        </div>
+        {phraseError ? (
+          <p className="edit-profile-error" role="alert">
+            {phraseError}
+          </p>
+        ) : null}
+        <div className="edit-profile-actions">
+          <button type="button" className="btn ghost" onClick={onKeep}>
+            Keep
+          </button>
+          <button type="button" className="btn danger" onClick={onDelete}>
+            Delete
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── DeleteAccountFinalModal (step 2) ─────────────────────────────────────────
 
@@ -489,34 +605,46 @@ export const DeleteAccountFinalModal: React.FC<DeleteAccountFinalModalProps> = (
   onYes,
   error,
   deleting = false,
-}) => (
-  <div className="edit-profile-modal-overlay">
-    <div className="edit-profile-modal-content">
-      <h2>Delete account</h2>
-      <p className="delete-account-prompt">Are you sure you want to delete account?</p>
-      {error ? (
-        <p className="edit-profile-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <div className="edit-profile-actions">
-        <button type="button" className="btn ghost" onClick={onNo} disabled={deleting}>
-          No
-        </button>
-        <button
-          type="button"
-          className="btn danger"
-          disabled={deleting}
-          onClick={() => {
-            void onYes();
-          }}
-        >
-          {deleting ? "Deleting…" : "Yes"}
-        </button>
+}) => {
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !deleting) {
+        onNo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onNo, deleting]);
+
+  return (
+    <div className="edit-profile-modal-overlay">
+      <div className="edit-profile-modal-content">
+        <h2>Delete account</h2>
+        <p className="delete-account-prompt">Are you sure you want to delete account?</p>
+        {error ? (
+          <p className="edit-profile-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="edit-profile-actions">
+          <button type="button" className="btn ghost" onClick={onNo} disabled={deleting}>
+            No
+          </button>
+          <button
+            type="button"
+            className="btn danger"
+            disabled={deleting}
+            onClick={() => {
+              void onYes();
+            }}
+          >
+            {deleting ? "Deleting…" : "Yes"}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── ListingsTab ──────────────────────────────────────────────────────────────
 
@@ -586,13 +714,11 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
             }}
           >
             <div className="listing-image-wrap">
-              <img
+              <OptimizedImage
                 src={listing.image}
-                alt=""
+                alt={listing.name}
                 width={400}
                 height={225}
-                loading="lazy"
-                decoding="async"
               />
               <span className={`listing-status ${listing.status}`}>
                 {listing.status === "active" ? "Active" : "Ended"}
@@ -692,13 +818,11 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
           }}
         >
           <div className="bid-image-wrap">
-            <img
+            <OptimizedImage
               src={bid.image}
-              alt=""
+              alt={bid.name}
               width={400}
               height={225}
-              loading="lazy"
-              decoding="async"
             />
             <span className={`bid-status ${bid.status}`}>
               {bid.status === "winning" && "Winning"}

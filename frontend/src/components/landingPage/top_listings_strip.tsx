@@ -1,4 +1,5 @@
 import React from "react";
+import { OptimizedImage } from "../shared";
 
 export interface StripItem {
   id: string;
@@ -254,13 +255,12 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
             onClick={() => onViewItem(item.id)}
           >
             <div className="strip-image-wrap">
-              <img
+              <OptimizedImage
                 src={item.image}
                 alt={item.name}
                 width={220}
                 height={147}
-                loading="lazy"
-                decoding="async"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 45vw, 300px"
               />
               <span className="product-tag">{item.tag}</span>
             </div>

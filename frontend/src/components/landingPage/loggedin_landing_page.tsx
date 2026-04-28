@@ -1,7 +1,7 @@
-import React, { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
-import { LoadingSpinner, ErrorAlert } from "../shared";
+import { LoadingSpinner, ErrorAlert, OptimizedImage } from "../shared";
 import "./landing_page.css";
 import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
@@ -13,8 +13,13 @@ import {
 
 const LoggedInLandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, logout } = useAuth();
   const { data, isPending, isError, error } = useTopListingsQuery();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const isOnHomePage = location.pathname === "/";
 
   const trendingItems = useMemo(
     () => (data ? mapTopListingsToStripItems(data.trending_now, "Trending") : []),
@@ -43,13 +48,111 @@ const LoggedInLandingPage: React.FC = () => {
     navigate("/start_selling");
   };
 
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
+  const [recentSearches, setRecentSearches] = React.useState<string[]>(() => {
+    const stored = localStorage.getItem("recentSearches");
+    return stored ? JSON.parse(stored) : [];
+  });
+
+  const handleSearch = (e: React.FormEvent, query: string = searchQuery) => {
+    e.preventDefault();
+    const trimmedQuery = query.trim();
+    if (trimmedQuery) {
+      // Add to recent searches
+      const updated = [trimmedQuery, ...recentSearches.filter(s => s !== trimmedQuery)].slice(0, 5);
+      setRecentSearches(updated);
+      localStorage.setItem("recentSearches", JSON.stringify(updated));
+
+      navigate(`/explore/trending?q=${encodeURIComponent(trimmedQuery)}`);
+      setSearchQuery("");
+    }
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    localStorage.removeItem("recentSearches");
+  };
+
   return (
     <div className="landing">
+      {/* Skip navigation link */}
+      <a href="#main-content" className="skip-to-main">
+        Skip to main content
+      </a>
+
       <header className="navbar">
         <div className="navbar-logo">
           <span className="logo-text">Quickswap</span>
         </div>
-        <nav className="navbar-links" aria-label="Primary" />
+        <button
+          type="button"
+          className="navbar-hamburger"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle navigation menu"
+          aria-expanded={mobileMenuOpen}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <nav className={`navbar-links ${mobileMenuOpen ? 'mobile-open' : ''}`} aria-label="Primary" role="navigation">
+          <div className="navbar-search-wrapper">
+            <form className="navbar-search" onSubmit={(e) => handleSearch(e, searchQuery)}>
+              <input
+                type="text"
+                placeholder="Search auctions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search auctions"
+                className="search-input"
+                autoComplete="off"
+              />
+              <button type="submit" className="search-button" aria-label="Search">
+                🔍
+              </button>
+            </form>
+            {recentSearches.length > 0 && searchQuery === "" && (
+              <div className="recent-searches" role="region" aria-label="Recent searches">
+                <div className="recent-searches-header">
+                  <span className="recent-searches-title">Recent</span>
+                  <button
+                    type="button"
+                    className="clear-recent"
+                    onClick={clearRecentSearches}
+                    aria-label="Clear recent searches"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="recent-searches-list">
+                  {recentSearches.map((search, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className="recent-search-item"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleSearch(e, search);
+                      }}
+                    >
+                      <span>🔍</span>
+                      {search}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <a href="#trending" onClick={closeMobileMenu} className={isOnHomePage ? 'nav-link-active' : ''}>
+            Trending
+          </a>
+          <a href="/explore/trending" onClick={closeMobileMenu}>
+            Explore
+          </a>
+        </nav>
         <div className="navbar-actions">
           <button type="button" className="btn primary" onClick={handleStartSelling}>
             Start selling
@@ -96,13 +199,12 @@ const LoggedInLandingPage: React.FC = () => {
         </div>
         <div className="hero-visual">
           <div className="hero-card main">
-            <img
+            <OptimizedImage
               src="https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=800"
               alt="People collaborating at a laptop, representing your QuickSwap dashboard activity"
               width={800}
               height={533}
-              decoding="async"
-              fetchPriority="high"
+              priority
             />
             <div className="hero-tag">
               3 auctions ending in the next hour

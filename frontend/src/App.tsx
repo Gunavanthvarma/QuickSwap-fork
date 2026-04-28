@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { useAuth } from './auth/useAuth'
-import { ApiOfflineBanner } from './components/ApiOfflineBanner'
 
 const LandingPage = lazy(() => import('./components/landingPage/landing_page'))
 const LoggedInLandingPage = lazy(() => import('./components/landingPage/loggedin_landing_page'))
@@ -90,7 +89,6 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <ApiOfflineBanner />
         <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
