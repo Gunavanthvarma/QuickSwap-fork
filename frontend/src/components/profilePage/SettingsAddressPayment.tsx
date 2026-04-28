@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useToast } from "../shared";
 import type { ApiAddress, ApiPaymentMethod, UiPaymentBrand } from "./Profile.types";
 import { clearLocalAuth, getApiUrl } from "../../utils/authApi";
 import { isValidPostalCode } from "../../utils/validation";
@@ -157,6 +158,7 @@ const CardBrandIcon: React.FC<{ brand: UiPaymentBrand }> = ({ brand }) => (
 // ─── Address section (GET/POST/PUT/DELETE /api/address) ─────────────────────
 
 export const AddressDetailsSection: React.FC = () => {
+  const toast = useToast();
   const [addresses, setAddresses] = useState<ApiAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -319,6 +321,7 @@ export const AddressDetailsSection: React.FC = () => {
         });
       }
       await loadAddresses({ quiet: true });
+      toast.success(editingId ? 'Address updated' : 'Address added');
       closeModal();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : "Could not save address");
@@ -599,6 +602,7 @@ export const AddressDetailsSection: React.FC = () => {
 // ─── Payment section (GET/POST /api/add-payment, DELETE /api/add-payment/:id) ─
 
 export const PaymentDetailsSection: React.FC = () => {
+  const toast = useToast();
   const [methods, setMethods] = useState<ApiPaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -691,6 +695,7 @@ export const PaymentDetailsSection: React.FC = () => {
         body: JSON.stringify(body),
       });
       await loadPaymentMethods({ quiet: true });
+      toast.success('Payment method added');
       closeModal();
     } catch (err) {
       setModalError(err instanceof Error ? err.message : "Could not save payment method");

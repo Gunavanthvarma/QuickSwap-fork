@@ -1,5 +1,5 @@
 import React from "react";
-import { OptimizedImage } from "../shared";
+import { OptimizedImage, CountdownTimer } from "../shared";
 
 export interface StripItem {
   id: string;
@@ -7,6 +7,7 @@ export interface StripItem {
   price: string;
   image: string;
   tag: string;
+  endTime?: string;
 }
 
 export type StripEmptyIllustration =
@@ -270,6 +271,11 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
                 <span className="product-price">{item.price}</span>
                 <span className="strip-card-link">View details</span>
               </div>
+              {item.endTime && (
+                <div className="strip-card-countdown">
+                  <CountdownTimer endTimeIso={item.endTime} />
+                </div>
+              )}
             </div>
           </article>
           ))}
