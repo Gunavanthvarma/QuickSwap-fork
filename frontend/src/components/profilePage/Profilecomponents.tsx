@@ -104,11 +104,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   activityCharts,
 }) => {
   const initials = profileDisplayInitials(user, displayName);
-  const memberDetail = formatMemberSinceDetailed(user.created_at);
-  const memberShort = formatMemberSinceLabel(user.created_at);
-  const mobile = user.mobile?.trim();
-  const location = user.location?.trim();
-  const bio = user.bio?.trim();
 
   return (
     <section className="profile-header" aria-labelledby="profile-display-name">
@@ -123,50 +118,15 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           <div className="profile-info">
             <h1 id="profile-display-name">{displayName}</h1>
             <p className="profile-username">{user.email}</p>
+            {onEditProfile ? (
+              <button type="button" className="btn ghost profile-inline-edit-btn" onClick={onEditProfile}>
+                Edit profile
+              </button>
+            ) : null}
           </div>
         </div>
         {activityCharts}
-        {onEditProfile ? (
-          <div className="profile-header-actions">
-            <button type="button" className="btn primary" onClick={onEditProfile}>
-              Edit profile
-            </button>
-          </div>
-        ) : null}
       </div>
-
-      <dl className="profile-detail-grid">
-        <div className="profile-detail-item">
-          <dt>Member since</dt>
-          <dd>
-            {memberDetail ? (
-              <span className="profile-detail-primary">{memberDetail}</span>
-            ) : memberShort ? (
-              <span className="profile-detail-primary">{memberShort}</span>
-            ) : (
-              <span className="profile-detail-muted">Not available yet</span>
-            )}
-          </dd>
-        </div>
-        <div className="profile-detail-item">
-          <dt>Phone</dt>
-          <dd>{mobile ? mobile : <span className="profile-detail-muted">Not set</span>}</dd>
-        </div>
-        <div className="profile-detail-item">
-          <dt>Location</dt>
-          <dd>{location ? location : <span className="profile-detail-muted">Not set</span>}</dd>
-        </div>
-        <div className="profile-detail-item">
-          <dt>About</dt>
-          <dd>
-            {bio ? (
-              <p className="profile-bio-text">{bio}</p>
-            ) : (
-              <span className="profile-detail-muted">No bio yet.</span>
-            )}
-          </dd>
-        </div>
-      </dl>
     </section>
   );
 };
