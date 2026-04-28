@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { LoadingSpinner, ErrorAlert } from "../shared";
 import "./profile_page.css";
 import "../landingPage/loggedin_landing_page.css";
 
@@ -78,8 +79,25 @@ const ProfilePage: React.FC = () => {
     if (tab === "bids") void fetchMyBids();
   };
 
-  if (loading) return <div className="profile-page">Loading profile...</div>;
-  if (error || !user) return <div className="profile-page">Unable to load profile.</div>;
+  if (loading) {
+    return (
+      <div className="profile-page">
+        <LoadingSpinner message="Loading your profile..." size="medium" />
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <div className="profile-page">
+        <ErrorAlert
+          title="Cannot load profile"
+          message={error || "Unable to load your profile. Please refresh and try again."}
+          fullWidth
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="profile-page">

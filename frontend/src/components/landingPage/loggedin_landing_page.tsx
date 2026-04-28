@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
+import { LoadingSpinner, ErrorAlert } from "../shared";
 import "./landing_page.css";
 import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
@@ -110,8 +111,20 @@ const LoggedInLandingPage: React.FC = () => {
         </div>
       </section>
 
-      {isPending && <section className="strip-section">Loading auctions...</section>}
-      {!isPending && fetchError && <section className="strip-section">{fetchError}</section>}
+      {isPending && (
+        <section className="strip-section">
+          <LoadingSpinner message="Loading trending auctions..." size="medium" />
+        </section>
+      )}
+      {!isPending && fetchError && (
+        <section className="strip-section">
+          <ErrorAlert
+            title="Failed to load auctions"
+            message={fetchError}
+            fullWidth
+          />
+        </section>
+      )}
       {!isPending && !fetchError && data && (
         <>
           <TopListingsStrip

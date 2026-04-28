@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { LoadingSpinner, ErrorAlert } from "../shared";
 import "./landing_page.css";
 import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
@@ -57,8 +58,20 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
         </div>
       </section>
 
-      {isPending && <section className="strip-section">Loading auctions...</section>}
-      {!isPending && listError && <section className="strip-section">{listError}</section>}
+      {isPending && (
+        <section className="strip-section">
+          <LoadingSpinner message="Loading auctions..." size="medium" />
+        </section>
+      )}
+      {!isPending && listError && (
+        <section className="strip-section">
+          <ErrorAlert
+            title="Failed to load auctions"
+            message={listError}
+            fullWidth
+          />
+        </section>
+      )}
       {!isPending && !listError && data && (
         <TopListingsStrip
           title={pageTitle}
