@@ -22,6 +22,15 @@
   text-align: center;
 }
 
+@keyframes notif-badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+.notif-bell-badge--new {
+  animation: notif-badge-pulse 0.6s ease-in-out 3;
+}
+
 .notif-panel {
   position: absolute;
   right: 0;
@@ -68,7 +77,6 @@
 }
 
 .notif-panel-loading,
-.notif-panel-empty,
 .notif-panel-error {
   padding: 16px 12px;
   font-size: 0.85rem;
@@ -77,6 +85,22 @@
 
 .notif-panel-error {
   color: #b91c1c;
+}
+
+.notif-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 12px;
+  font-size: 0.85rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+.notif-empty-icon {
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .notif-list {

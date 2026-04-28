@@ -99,7 +99,7 @@ const AuctionDetail: React.FC = () => {
   /** Prefer Unix end from `time_sync`; fallback computed from listing.auction_end_time. */
   const [auctionEndMs, setAuctionEndMs] = useState<number | null>(null);
   const [auctionEndedByServer, setAuctionEndedByServer] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     const ac = new AbortController();
@@ -228,11 +228,11 @@ const AuctionDetail: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reconnect when auction id or active status changes, not on every listing field update
   }, [listingId, listing?.listing_id, listing?.status]);
 
-  // Tick every second for countdown while auction is active on this page.
+  // Update current time every second for countdown while auction is active on this page.
   useEffect(() => {
     if (!listing || listing.status.toLowerCase() !== "active" || auctionEndedByServer) return;
     const id = window.setInterval(() => {
-      setTick((t) => t + 1);
+      setNowMs(Date.now());
     }, 1000);
     return () => window.clearInterval(id);
   }, [listing, auctionEndedByServer]);
@@ -295,7 +295,7 @@ const AuctionDetail: React.FC = () => {
   const endMs = auctionEndMs ?? parseAuctionEndMsFromListing(listing.auction_end_time);
   const remainingMs =
     endMs != null
-      ? remainingUntilEndMs(endMs, Date.now() + tick * 0, serverSkewMs)
+      ? remainingUntilEndMs(endMs, nowMs, serverSkewMs)
       : null;
   const clientCountdownEnded = remainingMs != null && remainingMs <= 0;
   const auctionInactive =

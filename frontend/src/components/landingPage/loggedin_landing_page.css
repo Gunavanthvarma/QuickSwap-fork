@@ -148,6 +148,12 @@
   opacity: 0.7;
 }
 
+.strip-card-countdown {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
 /* Empty strip: full-width, no horizontal scroll */
 .strip-scroll.strip-scroll--empty {
   display: flex;

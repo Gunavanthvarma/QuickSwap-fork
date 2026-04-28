@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { LoadingSpinner, ErrorAlert } from "../shared";
+import { ErrorAlert, SkeletonGrid } from "../shared";
 import "./landing_page.css";
 import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
@@ -60,7 +60,7 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
 
       {isPending && (
         <section className="strip-section">
-          <LoadingSpinner message="Loading auctions..." size="medium" />
+          <SkeletonGrid variant="strip-card" count={6} />
         </section>
       )}
       {!isPending && listError && (

@@ -4,7 +4,7 @@ import { deleteListing } from "../../lib/listingApi";
 import { NotificationsBell } from "../notifications/NotificationsBell";
 import { AddressDetailsSection, PaymentDetailsSection } from "./SettingsAddressPayment";
 import { StripEmptyStateView } from "../landingPage/top_listings_strip";
-import { OptimizedImage } from "../shared";
+import { OptimizedImage, ErrorAlert, SkeletonGrid, useToast } from "../shared";
 import { isValidPhone } from "../../utils/validation";
 import type {
   ProfileResponse,
@@ -237,6 +237,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   saveError,
   saving = false,
 }) => {
+  const toast = useToast();
   const [showSuccess, setShowSuccess] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
 
@@ -293,7 +294,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     };
     if (Object.keys(allErrors).length > 0) return;
     const ok = await onSubmit(e);
-    if (ok) setShowSuccess(true);
+    if (ok) {
+      toast.success('Profile updated successfully');
+      setShowSuccess(true);
+    }
   };
 
   if (showSuccess) {
@@ -427,6 +431,7 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
   updateError,
   saving = false,
 }) => {
+  const toast = useToast();
   const [showSuccess, setShowSuccess] = React.useState(false);
 
   React.useEffect(() => {
@@ -443,7 +448,10 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
     e.preventDefault();
     if (saving) return;
     const ok = await onSubmit(e);
-    if (ok) setShowSuccess(true);
+    if (ok) {
+      toast.success('Password updated successfully');
+      setShowSuccess(true);
+    }
   };
 
   if (showSuccess) {
@@ -677,8 +685,8 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
     }
   };
 
-  if (loading) return <div>Loading your listings...</div>;
-  if (error) return <div>{error}</div>;
+  if (loading) return <SkeletonGrid variant="listing-card" count={4} />;
+  if (error) return <ErrorAlert message={error} title="Could not load listings" />;
   if (listings.length === 0) {
     return (
       <div className="profile-listings-empty">
@@ -781,8 +789,8 @@ interface BidsTabProps {
 
 export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
   const navigate = useNavigate();
-  if (loading) return <div>Loading your bids...</div>;
-  if (error) return <div>{error}</div>;
+  if (loading) return <SkeletonGrid variant="bid-card" count={4} />;
+  if (error) return <ErrorAlert message={error} title="Could not load bids" />;
   if (bids.length === 0) {
     return (
       <div className="profile-bids-empty">
@@ -790,6 +798,8 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
           <StripEmptyStateView
             config={{
               illustration: "no-bids",
+              title: "No bids placed yet",
+              description: "Explore auctions and place your first bid.",
               ctaLabel: "Browse live auctions",
               onCta: () => navigate("/"),
             }}
