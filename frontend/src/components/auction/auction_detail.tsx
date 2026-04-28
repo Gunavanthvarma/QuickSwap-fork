@@ -4,6 +4,7 @@ import { useAuth } from "../../auth/useAuth";
 import { apiErrorMessage, authHeaders, getApiUrl, getSSEUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { deleteListing } from "../../lib/listingApi";
 import { formatCurrency } from "../../lib/format";
+import { LoadingSpinner, ErrorAlert } from "../shared";
 import {
   computeServerSkewMs,
   formatCountdown,
@@ -240,7 +241,7 @@ const AuctionDetail: React.FC = () => {
     return (
       <div className="auction-page">
         <main id="main-content">
-          <p>Loading auction details...</p>
+          <LoadingSpinner message="Loading auction details..." size="medium" />
         </main>
       </div>
     );
@@ -250,10 +251,14 @@ const AuctionDetail: React.FC = () => {
     return (
       <div className="auction-page">
         <button type="button" className="auction-back" onClick={() => navigate(-1)}>
-          Back
+          ← Back
         </button>
         <main id="main-content">
-          <p>{error || "Listing not found."}</p>
+          <ErrorAlert
+            title="Cannot load auction"
+            message={error || "Listing not found."}
+            fullWidth
+          />
         </main>
       </div>
     );

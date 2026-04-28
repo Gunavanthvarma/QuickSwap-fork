@@ -2,15 +2,9 @@
  * Shared helpers for QuickSwap auth API routes (same base URL rules as profile hooks).
  */
 
-export function getApiUrl(path: string): string {
-  const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-  const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-  if (!apiBase) return path;
+import { getApiUrl } from "../lib/api";
 
-  const normalizedBase = apiBase.replace(/\/$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${normalizedBase}${normalizedPath}`;
-}
+export { getApiUrl };
 
 export function clearLocalAuth(): void {
   localStorage.removeItem("accessToken");

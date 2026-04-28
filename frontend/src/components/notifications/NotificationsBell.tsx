@@ -36,8 +36,9 @@ export const NotificationsBell: React.FC = () => {
     try {
       const n = await fetchUnreadNotificationCount(token);
       setUnreadCount(n);
-    } catch {
-      /* ignore poll errors */
+    } catch (err) {
+      // Silently ignore errors - notifications table may not exist yet
+      console.debug("Notification count fetch error (expected if table not created):", err);
     }
   }, []);
 
@@ -54,7 +55,13 @@ export const NotificationsBell: React.FC = () => {
       setItems(list);
       await refreshCount();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load notifications");
+      // Be more descriptive about the error
+      const errorMsg = err instanceof Error ? err.message : "Failed to load notifications";
+      if (errorMsg.includes("404") || errorMsg.includes("not found")) {
+        setError("Notifications feature is not yet set up. Please contact support.");
+      } else {
+        setError(errorMsg);
+      }
       setItems([]);
     } finally {
       setLoading(false);
