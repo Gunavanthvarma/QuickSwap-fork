@@ -68,6 +68,18 @@ body {
   max-width: 1180px;
   margin: 0 auto;
   padding: 20px 16px 40px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", sans-serif;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Keep profile typography aligned with app-wide defaults. */
+.profile-page button,
+.profile-page input,
+.profile-page select,
+.profile-page textarea {
+  font: inherit;
 }
 
 .profile-shell {
@@ -293,13 +305,9 @@ body {
   display: flex;
   gap: 12px;
   align-items: center;
-  flex: 0 1 240px;
-  max-width: 280px;
+  flex: 1 1 340px;
+  max-width: 460px;
   min-width: 0;
-}
-
-.profile-header-actions {
-  flex-shrink: 0;
 }
 
 .profile-header-charts {
@@ -307,8 +315,8 @@ body {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 16px 40px;
-  flex: 3 1 min(520px, 100%);
+  gap: 10px 18px;
+  flex: 2 1 min(420px, 100%);
   min-width: min(100%, 300px);
 }
 
@@ -321,8 +329,8 @@ body {
 }
 
 .profile-mini-chart-visual {
-  width: 124px;
-  height: 124px;
+  width: 78px;
+  height: 78px;
   flex-shrink: 0;
 }
 
@@ -439,7 +447,19 @@ body {
   margin: 0;
   font-size: 0.82rem;
   color: var(--muted);
-  word-break: break-word;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.btn.ghost.profile-inline-edit-btn {
+  margin-top: 10px;
+  padding: 2px 7px !important;
+  font-size: 0.64rem !important;
+  font-weight: 5000!important;
+  line-height: 1.5;
+  display: inline-flex;
+  width: fit-content;
 }
 
 .profile-detail-grid {
@@ -1278,10 +1298,6 @@ body {
     align-items: stretch;
   }
 
-  .profile-header-actions .btn.primary {
-    width: 100%;
-  }
-
   .profile-header-content {
     width: 100%;
     max-width: none;
@@ -1298,8 +1314,8 @@ body {
   }
 
   .profile-mini-chart-visual {
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
   }
 
   .profile-actions {
