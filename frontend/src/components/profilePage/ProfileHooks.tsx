@@ -72,8 +72,6 @@ function mergeProfileFromApi(base: ProfileResponse, row: Record<string, unknown>
   if (email !== undefined) out.email = email;
   const created = pickStr("created_at");
   if (created !== undefined) out.created_at = created;
-  const bio = pickStr("bio");
-  if (bio !== undefined) out.bio = bio;
   const location = pickStr("location");
   if (location !== undefined) out.location = location;
   return out;
@@ -361,8 +359,6 @@ export const useProfile = () => {
       first_name: editForm.first_name.trim(),
       last_name: editForm.last_name.trim(),
       mobile: editForm.mobile.trim(),
-      location: (user.location ?? "").trim(),
-      bio: (user.bio ?? "").trim(),
     };
 
     setProfileSaveError(null);
