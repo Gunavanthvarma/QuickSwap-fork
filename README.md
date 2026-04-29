@@ -12,6 +12,7 @@ The app uses Supabase for authentication. To run locally:
    - `SUPABASE_ANON_KEY` — your anon/public key
 3. run `docker-compose up -d redis`
 4. execute `docker run --name quickswap-redis -p 6379:6379 -d redis:7-alpine`
+5. go build
 5. Run the auth server:
    ```bash
    go run ./cmd/server
