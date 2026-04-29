@@ -65,6 +65,9 @@ interface SingleListingResponse {
   location?: string;
   condition?: string;
   brand?: string;
+  seller_email?: string;
+  winner_name?: string;
+  winner_email?: string;
 }
 
 const AuctionDetail: React.FC = () => {
@@ -283,6 +286,9 @@ const AuctionDetail: React.FC = () => {
     location,
     condition,
     brand,
+    seller_email,
+    winner_name,
+    winner_email,
   } = listing;
 
   const hasJoinedAuction = has_joined || hasJoinedLocal;
@@ -589,6 +595,28 @@ const AuctionDetail: React.FC = () => {
                 Update details or remove this listing. Bidders will see changes after you save.
               </p>
             </div>
+          )}
+
+          {(winner_email || seller_email) && (
+            <section className="auction-contact-card" aria-label="Post-auction contact details">
+              <h3>Contact details</h3>
+              {winner_email ? (
+                <>
+                  <p className="auction-contact-row">
+                    <strong>Winner name:</strong> {winner_name || "Unknown"}
+                  </p>
+                  <p className="auction-contact-row">
+                    <strong>Winner email:</strong>{" "}
+                    <a href={`mailto:${winner_email}`}>{winner_email}</a>
+                  </p>
+                </>
+              ) : null}
+              {seller_email ? (
+                <p className="auction-contact-row">
+                  <strong>Seller email:</strong> <a href={`mailto:${seller_email}`}>{seller_email}</a>
+                </p>
+              ) : null}
+            </section>
           )}
 
           {!is_seller && (
