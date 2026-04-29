@@ -5,6 +5,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 	"github.com/joho/godotenv"
 	"github.com/quickswap/quickswap/internal/auth"
 	"github.com/quickswap/quickswap/internal/db"
@@ -62,10 +65,34 @@ func main() {
 	}
 	addr := ":" + port
 
-	log.Printf("QuickSwap auth server listening on %s", addr)
-	if err := http.ListenAndServe(addr, corsMiddleware(http.DefaultServeMux)); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: corsMiddleware(http.DefaultServeMux),
 	}
+
+	go func() {
+		log.Printf("QuickSwap auth server listening on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	// The context is used to inform the server it has 5 seconds to finish
+	// the request it is currently handling
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctxShutdown); err != nil {
+		log.Fatal("Server forced to shutdown:", err)
+	}
+
+	log.Println("Server exiting gracefully")
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
