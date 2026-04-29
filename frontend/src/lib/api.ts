@@ -4,8 +4,13 @@
  */
 export function getApiUrl(path: string): string {
   const rawApiBase = (import.meta.env.VITE_API_BASE as string) || "";
-  const apiBase = rawApiBase.replace(/["']+/g, "").trim();
-  if (!apiBase) return path;
+  let apiBase = rawApiBase.replace(/["']+/g, "").trim();
+  
+  if (!apiBase && import.meta.env.DEV) {
+    apiBase = "http://localhost:8082";
+  } else if (!apiBase) {
+    return path;
+  }
 
   const normalizedBase = apiBase.replace(/\/$/, "");
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
