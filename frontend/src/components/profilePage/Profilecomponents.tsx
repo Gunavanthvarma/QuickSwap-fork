@@ -689,7 +689,11 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
                 height={225}
               />
               <span className={`listing-status ${listing.status}`}>
-                {listing.status === "active" ? "Active" : "Ended"}
+                {listing.status === "active"
+                  ? "Active"
+                  : listing.status === "sold"
+                    ? "Sold"
+                    : "Unsold"}
               </span>
             </div>
             <div className="listing-body">

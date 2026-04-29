@@ -563,15 +563,19 @@ export const useMyListings = () => {
 
       const payload = rawJson as MyListingsApiResponse;
       const listings: ListingCardItem[] = Array.isArray(payload.listings)
-        ? payload.listings.map((item: MyListingApiItem) => ({
-            id: item.listing_id,
-            name: item.title,
-            image: item.image || "",
-            currentBid: formatCurrency(item.current_bid),
-            timeLeft: formatTimeRemainingFromBackendString(item.time_left || "Ended"),
-            bids: item.total_bids || 0,
-            status: item.status?.toLowerCase() === "active" ? "active" : "sold",
-          }))
+        ? payload.listings.map((item: MyListingApiItem) => {
+            const totalBids = item.total_bids || 0;
+            const isActive = item.status?.toLowerCase() === "active";
+            return {
+              id: item.listing_id,
+              name: item.title,
+              image: item.image || "",
+              currentBid: formatCurrency(item.current_bid),
+              timeLeft: formatTimeRemainingFromBackendString(item.time_left || "Ended"),
+              bids: totalBids,
+              status: isActive ? "active" : totalBids > 0 ? "sold" : "unsold",
+            };
+          })
         : [];
 
       setUserListings(listings);

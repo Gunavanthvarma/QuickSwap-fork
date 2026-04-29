@@ -58,7 +58,7 @@ export interface ListingCardItem {
   currentBid: string;
   timeLeft: string;
   bids: number;
-  status: "active" | "sold";
+  status: "active" | "sold" | "unsold";
 }
 
 export interface BidCardItem {

@@ -690,6 +690,12 @@ body {
   border-color: var(--info);
 }
 
+.listing-status.unsold {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
 .bid-status.outbid,
 .bid-status.lost {
   background: var(--error-soft);
