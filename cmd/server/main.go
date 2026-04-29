@@ -67,7 +67,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: corsMiddleware(http.DefaultServeMux),
+		Handler: corsMiddleware(requestLogger(http.DefaultServeMux)),
 	}
 
 	go func() {
@@ -114,5 +114,14 @@ func corsMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+// requestLogger logs the HTTP method, URL path, and latency of every incoming request
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		log.Printf("[%s] %s - %v", r.Method, r.URL.Path, time.Since(start))
 	})
 }
