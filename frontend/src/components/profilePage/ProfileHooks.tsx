@@ -682,7 +682,7 @@ export const useMyBids = () => {
               : "outbid";
 
         return {
-          id: item.id || item.listing_id,
+          id: item.listing_id || item.id,
           name: item.title || "Untitled listing",
           image: item.image || "",
           yourBid: formatCurrency(item.bid_amount),
