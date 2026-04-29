@@ -57,6 +57,9 @@ func NewRouter(c *auth.Client, pg *pgxpool.Pool, rdb *redis.Client) http.Handler
 	mux.HandleFunc("PUT /api/notifications/{id}/read", markNotificationReadHandler(pg))
 	mux.HandleFunc("DELETE /api/notifications/{id}", deleteNotificationHandler(pg))
 
+	// Health Check
+	mux.HandleFunc("GET /api/health", healthCheckHandler())
+
 	return mux
 }
 
