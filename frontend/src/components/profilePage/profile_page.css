@@ -671,7 +671,8 @@ body {
 }
 
 .listing-status.active,
-.bid-status.winning {
+.bid-status.winning,
+.bid-status.won {
   background: var(--success-soft);
   color: var(--success);
   border-color: var(--success);

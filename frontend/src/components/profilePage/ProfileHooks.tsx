@@ -665,9 +665,21 @@ export const useMyBids = () => {
 
       const bids: BidCardItem[] = raw.map((item) => {
         const normalized = item.label?.toLowerCase();
+        const auctionEndMs =
+          typeof item.auction_end_time === "string" ? Date.parse(item.auction_end_time) : NaN;
+        const hasEndedByTime = Number.isFinite(auctionEndMs) && auctionEndMs <= Date.now();
+        const hasEndedByLabel = (item.time_left ?? "").toLowerCase().includes("ended");
+        const hasEnded = hasEndedByTime || hasEndedByLabel;
+        const isWinningByAmount =
+          Number.isFinite(item.bid_amount) &&
+          Number.isFinite(item.current_bid) &&
+          item.bid_amount >= item.current_bid;
         const status: BidCardItem["status"] =
-          normalized === "winning" || normalized === "outbid" || normalized === "lost"
-            ? normalized : "outbid";
+          hasEnded
+            ? (normalized === "won" || normalized === "winning" || isWinningByAmount ? "won" : "lost")
+            : normalized === "winning"
+              ? "winning"
+              : "outbid";
 
         return {
           id: item.id || item.listing_id,

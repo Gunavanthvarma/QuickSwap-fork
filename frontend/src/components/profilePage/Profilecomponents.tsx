@@ -795,6 +795,7 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
               height={225}
             />
             <span className={`bid-status ${bid.status}`}>
+              {bid.status === "won" && "Won"}
               {bid.status === "winning" && "Winning"}
               {bid.status === "outbid" && "Outbid"}
               {bid.status === "lost" && "Lost"}
