@@ -11,7 +11,7 @@ const listings: ListingCardItem[] = [
     currentBid: "$1",
     timeLeft: "1h",
     bids: 1,
-    status: "active",
+    status: "unsold",
   },
   {
     id: "2",
@@ -41,7 +41,7 @@ const bids: BidCardItem[] = [
     yourBid: "$1",
     currentBid: "$5",
     timeLeft: "0",
-    status: "outbid",
+    status: "bid_more",
   },
   {
     id: "b3",
@@ -93,13 +93,13 @@ describe("ProfileHeaderCharts", () => {
         bidsLoading={false}
       />,
     );
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("Unsold")).toBeInTheDocument();
     expect(screen.getByText("Sold")).toBeInTheDocument();
-    expect(screen.getByLabelText(/listings: active 1, sold 1/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/listings: sold 1, unsold 1/i)).toBeInTheDocument();
 
-    expect(screen.getByText("Winning")).toBeInTheDocument();
+    expect(screen.getByText("Won")).toBeInTheDocument();
     expect(screen.getByText("Outbid")).toBeInTheDocument();
     expect(screen.getByText("Lost")).toBeInTheDocument();
-    expect(screen.getByLabelText(/bids: winning 1, outbid 1, lost 1/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/bids: won 1, outbid 1, lost 1/i)).toBeInTheDocument();
   });
 });
