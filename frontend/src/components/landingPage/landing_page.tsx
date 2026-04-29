@@ -71,7 +71,7 @@ const LandingPage = () => {
 
       {/* Navbar */}
       <header className="navbar">
-        <div className="navbar-logo">
+        <div className="navbar-logo" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           <span className="logo-text">Quickswap</span>
         </div>
         <button

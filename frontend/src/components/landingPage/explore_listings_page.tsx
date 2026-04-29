@@ -38,13 +38,10 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
   return (
     <div className="landing">
       <header className="navbar" aria-label="Explore listings">
-        <div className="navbar-logo">
+        <div className="navbar-logo" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           <span className="logo-text">Quickswap</span>
         </div>
         <div className="navbar-actions">
-          <button type="button" className="btn ghost" onClick={() => navigate(-1)}>
-            ← Back
-          </button>
           <button type="button" className="btn ghost" onClick={() => navigate("/profile")}>
             Profile
           </button>

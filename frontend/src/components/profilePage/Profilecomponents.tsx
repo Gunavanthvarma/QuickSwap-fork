@@ -28,8 +28,7 @@ export const ProfileNavbar: React.FC = () => {
   return (
     <header className="profile-navbar">
       <div className="profile-navbar-left">
-        <button type="button" className="profile-back-pill" onClick={() => navigate("/")}>← Back</button>
-        <div className="navbar-logo">
+        <div className="navbar-logo" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           <span className="logo-text">Quickswap</span>
         </div>
       </div>
