@@ -643,7 +643,7 @@ const StartSelling: React.FC = () => {
             {/* Basic info */}
             <div className="sell-field-group">
               <label htmlFor="sell-title">
-                Title
+                Title *
                 <input
                   id="sell-title"
                   type="text"
@@ -668,7 +668,7 @@ const StartSelling: React.FC = () => {
               </label>
 
               <label htmlFor="sell-description">
-                Detailed description
+                Detailed description *
                 <textarea
                   id="sell-description"
                   value={form.description}
@@ -686,7 +686,7 @@ const StartSelling: React.FC = () => {
             {/* Category & subcategory */}
             <div className="sell-two-column">
               <label htmlFor="sell-category">
-                Category
+                Category *
                 <select
                   id="sell-category"
                   value={form.category}
@@ -705,7 +705,7 @@ const StartSelling: React.FC = () => {
               </label>
 
               <label htmlFor="sell-subcategory">
-                Subcategory
+                Subcategory{!isEditMode ? " *" : ""}
                 <select
                   id="sell-subcategory"
                   value={form.subcategory}
@@ -783,7 +783,7 @@ const StartSelling: React.FC = () => {
 
             <div className="sell-two-column">
               <label htmlFor="sell-location-city">
-                City / Area
+                City / Area *
                 <input
                   id="sell-location-city"
                   type="text"
@@ -802,7 +802,7 @@ const StartSelling: React.FC = () => {
 
               <div className="sell-two-column">
                 <label htmlFor="sell-starting-bid">
-                  Starting bid
+                  Starting bid{!isEditMode ? " *" : ""}
                   <div className="sell-inline-input">
                     <span className="sell-prefix">$</span>
                     <input
@@ -851,7 +851,7 @@ const StartSelling: React.FC = () => {
                 </label>
 
                 <label htmlFor="sell-end-time">
-                  Auction end time
+                  Auction end time *
                   <input
                     id="sell-end-time"
                     type="datetime-local"

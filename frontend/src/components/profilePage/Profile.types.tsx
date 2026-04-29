@@ -68,7 +68,7 @@ export interface BidCardItem {
   yourBid: string;
   currentBid: string;
   timeLeft: string;
-  status: "winning" | "outbid" | "lost" | "won";
+  status: "winning" | "bid_more" | "lost" | "won";
 }
 
 export interface EditFormState {

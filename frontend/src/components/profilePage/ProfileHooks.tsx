@@ -667,33 +667,119 @@ export const useMyBids = () => {
         raw = (rawJson as MyBidsApiResponse).bids ?? [];
       }
 
-      const bids: BidCardItem[] = raw.map((item) => {
-        const normalized = item.label?.toLowerCase();
+      type BidAggregate = {
+        id: string;
+        name: string;
+        image: string;
+        yourBidAmount: number;
+        yourBidSequence: number;
+        yourBidTimestampMs: number;
+        currentBidAmountFallback: number;
+        auctionEndTime?: string;
+        timeLeftRaw?: string;
+      };
+      const perListing = new Map<string, BidAggregate>();
+      for (const item of raw) {
+        const key = item.listing_id || item.id;
+        if (!key) continue;
+        const prev = perListing.get(key);
+        const yourBidAmount = Number.isFinite(item.bid_amount)
+          ? item.bid_amount
+          : (prev?.yourBidAmount ?? 0);
+        const bidSequence = Number.isFinite(item.bid_sequence) ? item.bid_sequence : -1;
+        const bidTimestampMs = Number.isFinite(Date.parse(item.timestamp)) ? Date.parse(item.timestamp) : -1;
+        const currentBidAmount = Number.isFinite(item.current_bid) ? item.current_bid : 0;
+        if (!prev) {
+          perListing.set(key, {
+            id: key,
+            name: item.title || "Untitled listing",
+            image: item.image || "",
+            yourBidAmount,
+            yourBidSequence: bidSequence,
+            yourBidTimestampMs: bidTimestampMs,
+            currentBidAmountFallback: currentBidAmount,
+            auctionEndTime: item.auction_end_time,
+            timeLeftRaw: item.time_left,
+          });
+          continue;
+        }
+        const isNewerBid =
+          bidSequence > prev.yourBidSequence ||
+          (bidSequence === prev.yourBidSequence && bidTimestampMs > prev.yourBidTimestampMs);
+        perListing.set(key, {
+          id: key,
+          name: prev.name || item.title || "Untitled listing",
+          image: prev.image || item.image || "",
+          // Use the user's most recent bid for this listing.
+          yourBidAmount: isNewerBid ? yourBidAmount : prev.yourBidAmount,
+          yourBidSequence: Math.max(prev.yourBidSequence, bidSequence),
+          yourBidTimestampMs: Math.max(prev.yourBidTimestampMs, bidTimestampMs),
+          currentBidAmountFallback: Math.max(prev.currentBidAmountFallback, currentBidAmount),
+          auctionEndTime: item.auction_end_time || prev.auctionEndTime,
+          timeLeftRaw: item.time_left || prev.timeLeftRaw,
+        });
+      }
+
+      const listingRows = await Promise.all(
+        Array.from(perListing.values()).map(async (item) => {
+          try {
+            const listingRes = await fetch(
+              getApiUrl(`/api/listing?id=${encodeURIComponent(item.id)}`),
+              { method: "GET", headers: authHeaders(token), signal: externalSignal },
+            );
+            const listingRaw: unknown = await listingRes.json().catch(() => ({}));
+            if (!listingRes.ok || !isRecord(listingRaw)) {
+              return item;
+            }
+            const currentBidAmount =
+              typeof listingRaw.current_bid === "number" && Number.isFinite(listingRaw.current_bid)
+                ? listingRaw.current_bid
+                : item.currentBidAmountFallback;
+            const title = typeof listingRaw.title === "string" ? listingRaw.title : item.name;
+            const image = typeof listingRaw.image === "string" ? listingRaw.image : item.image;
+            const auctionEndTime =
+              typeof listingRaw.auction_end_time === "string"
+                ? listingRaw.auction_end_time
+                : item.auctionEndTime;
+            const timeLeftRaw =
+              typeof listingRaw.time_left === "string" ? listingRaw.time_left : item.timeLeftRaw;
+            return {
+              ...item,
+              name: title || item.name,
+              image: image || item.image,
+              auctionEndTime,
+              timeLeftRaw,
+              currentBidAmountFallback: currentBidAmount,
+            };
+          } catch {
+            return item;
+          }
+        }),
+      );
+
+      const bids: BidCardItem[] = listingRows.map((item) => {
         const auctionEndMs =
-          typeof item.auction_end_time === "string" ? Date.parse(item.auction_end_time) : NaN;
+          typeof item.auctionEndTime === "string" ? Date.parse(item.auctionEndTime) : NaN;
         const hasEndedByTime = Number.isFinite(auctionEndMs) && auctionEndMs <= Date.now();
-        const hasEndedByLabel = (item.time_left ?? "").toLowerCase().includes("ended");
+        const hasEndedByLabel = (item.timeLeftRaw ?? "").toLowerCase().includes("ended");
         const hasEnded = hasEndedByTime || hasEndedByLabel;
         const isWinningByAmount =
-          Number.isFinite(item.bid_amount) &&
-          Number.isFinite(item.current_bid) &&
-          item.bid_amount >= item.current_bid;
-        const status: BidCardItem["status"] =
-          hasEnded
-            ? (normalized === "won" || normalized === "winning" || isWinningByAmount ? "won" : "lost")
-            : normalized === "winning"
-              ? "winning"
-              : "outbid";
+          Number.isFinite(item.yourBidAmount) &&
+          Number.isFinite(item.currentBidAmountFallback) &&
+          item.yourBidAmount >= item.currentBidAmountFallback;
+        const status: BidCardItem["status"] = hasEnded
+          ? (isWinningByAmount ? "won" : "lost")
+          : (isWinningByAmount ? "winning" : "bid_more");
 
         return {
-          id: item.listing_id || item.id,
-          name: item.title || "Untitled listing",
+          id: item.id,
+          name: item.name || "Untitled listing",
           image: item.image || "",
-          yourBid: formatCurrency(item.bid_amount),
-          currentBid: formatCurrency(item.current_bid),
-          timeLeft: item.auction_end_time
-            ? formatTimeRemainingFromEnd(item.auction_end_time)
-            : formatTimeRemainingFromBackendString(item.time_left || "Ended"),
+          yourBid: formatCurrency(item.yourBidAmount),
+          currentBid: formatCurrency(item.currentBidAmountFallback),
+          timeLeft: item.auctionEndTime
+            ? formatTimeRemainingFromEnd(item.auctionEndTime)
+            : formatTimeRemainingFromBackendString(item.timeLeftRaw || "Ended"),
           status,
         };
       });

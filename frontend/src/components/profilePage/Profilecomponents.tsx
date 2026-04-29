@@ -801,7 +801,7 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
             <span className={`bid-status ${bid.status}`}>
               {bid.status === "won" && "Won"}
               {bid.status === "winning" && "Winning"}
-              {bid.status === "outbid" && "Outbid"}
+              {bid.status === "bid_more" && "Bid more"}
               {bid.status === "lost" && "Lost"}
             </span>
           </div>
@@ -827,7 +827,7 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
               </div>
             )}
             <div className="bid-actions">
-              {bid.status === "outbid" && <span className="btn primary" style={{ display: "block", textAlign: "center" }}>Place higher bid</span>}
+              {bid.status === "bid_more" && <span className="btn primary" style={{ display: "block", textAlign: "center" }}>Place higher bid</span>}
               {bid.status === "winning" && <span className="btn ghost" style={{ display: "block", textAlign: "center" }}>View auction</span>}
               {bid.status === "lost" && <span className="btn ghost" style={{ display: "block", textAlign: "center" }}>View details</span>}
             </div>

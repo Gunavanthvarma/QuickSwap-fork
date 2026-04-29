@@ -696,7 +696,7 @@ body {
   border-color: #d1d5db;
 }
 
-.bid-status.outbid,
+.bid-status.bid_more,
 .bid-status.lost {
   background: var(--error-soft);
   color: var(--error);
