@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+.github
+
+# Local Secrets (Do not bake secrets into the Docker image!)
+.env
+.env.production
+
+# Frontend Assets (The Go container does not need to build or serve the React frontend)
+frontend/
+node_modules/
+
+# Compiled Local Binaries
+*.exe
+tmp_server
+server
+main
+
+# Documentation
+README.md
+Sprint*.md
+*.json
