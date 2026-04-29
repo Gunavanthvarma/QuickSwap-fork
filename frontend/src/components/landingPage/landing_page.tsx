@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { OptimizedImage } from "../shared";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import "./landing_page.css";
 
 const mockListings = [
@@ -105,6 +106,7 @@ const LandingPage = () => {
               <button type="button" className="btn ghost" onClick={handleLogout}>
                 Logout
               </button>
+              <NotificationsBell />
             </>
           ) : (
             <button type="button" className="btn ghost" onClick={() => navigate("/signin")}>

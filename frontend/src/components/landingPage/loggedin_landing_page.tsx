@@ -149,15 +149,18 @@ const LoggedInLandingPage: React.FC = () => {
           <a href="#trending" onClick={closeMobileMenu} className={isOnHomePage ? 'nav-link-active' : ''}>
             Trending
           </a>
-          <a href="/explore/trending" onClick={closeMobileMenu}>
+          <button
+            type="button"
+            className="navbar-link-button"
+            onClick={() => { navigate("/explore/trending"); closeMobileMenu(); }}
+          >
             Explore
-          </a>
+          </button>
         </nav>
         <div className="navbar-actions">
           <button type="button" className="btn primary" onClick={handleStartSelling}>
             Start selling
           </button>
-          <NotificationsBell />
           {isAuthenticated && (
             <>
               <button
@@ -172,6 +175,7 @@ const LoggedInLandingPage: React.FC = () => {
               </button>
             </>
           )}
+          <NotificationsBell />
         </div>
       </header>
 

@@ -135,6 +135,22 @@ button:focus-visible,
   background-color: rgba(209, 213, 219, 0.35);
 }
 
+.navbar-link-button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.navbar-link-button:hover {
+  background-color: rgba(209, 213, 219, 0.35);
+  color: var(--text);
+}
+
 .navbar-actions {
   display: flex;
   gap: 8px;

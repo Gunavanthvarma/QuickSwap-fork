@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ErrorAlert, SkeletonGrid } from "../shared";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import "./landing_page.css";
 import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
@@ -42,11 +43,12 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
         </div>
         <div className="navbar-actions">
           <button type="button" className="btn ghost" onClick={() => navigate(-1)}>
-            Back
+            ← Back
           </button>
           <button type="button" className="btn ghost" onClick={() => navigate("/profile")}>
             Profile
           </button>
+          <NotificationsBell />
         </div>
       </header>
 
