@@ -25,10 +25,21 @@
   --info-soft: #dbeafe;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Offset sticky navbar when scrolling to in-page anchors */
+#features,
+#auctions,
+#about {
+  scroll-margin-top: 80px;
 }
 
 /* Skip to main content link (accessibility) */

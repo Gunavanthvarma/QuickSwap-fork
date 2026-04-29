@@ -32,6 +32,26 @@
     "Segoe UI", sans-serif;
 }
 
+/* Page wrapper for auth pages with navbar */
+.auth-page-wrapper {
+  min-height: 100vh;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+  background-color: var(--auth-background);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", sans-serif;
+}
+
+/* Vertically center the card in the remaining space below the navbar */
+.auth-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 140px);
+  padding: 16px 0;
+}
+
 /* Card / Paper – similar to landing cards */
 .auth-paper {
   padding: 24px 28px;
