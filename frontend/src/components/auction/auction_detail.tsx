@@ -4,6 +4,7 @@ import { useAuth } from "../../auth/useAuth";
 import { apiErrorMessage, authHeaders, getApiUrl, getSSEUrl, isFetchAborted, isRecord } from "../../lib/api";
 import { deleteListing } from "../../lib/listingApi";
 import { formatCurrency } from "../../lib/format";
+import { LoadingSpinner, ErrorAlert, OptimizedImage } from "../shared";
 import {
   computeServerSkewMs,
   formatCountdown,
@@ -64,6 +65,9 @@ interface SingleListingResponse {
   location?: string;
   condition?: string;
   brand?: string;
+  seller_email?: string;
+  winner_name?: string;
+  winner_email?: string;
 }
 
 const AuctionDetail: React.FC = () => {
@@ -98,7 +102,7 @@ const AuctionDetail: React.FC = () => {
   /** Prefer Unix end from `time_sync`; fallback computed from listing.auction_end_time. */
   const [auctionEndMs, setAuctionEndMs] = useState<number | null>(null);
   const [auctionEndedByServer, setAuctionEndedByServer] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     const ac = new AbortController();
@@ -227,11 +231,11 @@ const AuctionDetail: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reconnect when auction id or active status changes, not on every listing field update
   }, [listingId, listing?.listing_id, listing?.status]);
 
-  // Tick every second for countdown while auction is active on this page.
+  // Update current time every second for countdown while auction is active on this page.
   useEffect(() => {
     if (!listing || listing.status.toLowerCase() !== "active" || auctionEndedByServer) return;
     const id = window.setInterval(() => {
-      setTick((t) => t + 1);
+      setNowMs(Date.now());
     }, 1000);
     return () => window.clearInterval(id);
   }, [listing, auctionEndedByServer]);
@@ -240,7 +244,7 @@ const AuctionDetail: React.FC = () => {
     return (
       <div className="auction-page">
         <main id="main-content">
-          <p>Loading auction details...</p>
+          <LoadingSpinner message="Loading auction details..." size="medium" />
         </main>
       </div>
     );
@@ -250,10 +254,14 @@ const AuctionDetail: React.FC = () => {
     return (
       <div className="auction-page">
         <button type="button" className="auction-back" onClick={() => navigate(-1)}>
-          Back
+          ← Back
         </button>
         <main id="main-content">
-          <p>{error || "Listing not found."}</p>
+          <ErrorAlert
+            title="Cannot load auction"
+            message={error || "Listing not found."}
+            fullWidth
+          />
         </main>
       </div>
     );
@@ -278,6 +286,9 @@ const AuctionDetail: React.FC = () => {
     location,
     condition,
     brand,
+    seller_email,
+    winner_name,
+    winner_email,
   } = listing;
 
   const hasJoinedAuction = has_joined || hasJoinedLocal;
@@ -290,7 +301,7 @@ const AuctionDetail: React.FC = () => {
   const endMs = auctionEndMs ?? parseAuctionEndMsFromListing(listing.auction_end_time);
   const remainingMs =
     endMs != null
-      ? remainingUntilEndMs(endMs, Date.now() + tick * 0, serverSkewMs)
+      ? remainingUntilEndMs(endMs, nowMs, serverSkewMs)
       : null;
   const clientCountdownEnded = remainingMs != null && remainingMs <= 0;
   const auctionInactive =
@@ -403,18 +414,48 @@ const AuctionDetail: React.FC = () => {
         Back to results
       </button>
 
+      <nav className="auction-breadcrumb" aria-label="Breadcrumb">
+        <ol className="breadcrumb-list">
+          <li>
+            <button
+              type="button"
+              className="breadcrumb-link"
+              onClick={() => navigate("/")}
+            >
+              Home
+            </button>
+          </li>
+          <li>
+            <span className="breadcrumb-separator">/</span>
+            <button
+              type="button"
+              className="breadcrumb-link"
+              onClick={() => navigate("/explore/trending")}
+            >
+              Auctions
+            </button>
+          </li>
+          <li>
+            <span className="breadcrumb-separator">/</span>
+            <span className="breadcrumb-current" aria-current="page">
+              {title || "Loading..."}
+            </span>
+          </li>
+        </ol>
+      </nav>
+
       <main id="main-content">
       <div className="auction-layout">
         <section className="auction-gallery" aria-label="Listing images">
           <div className="auction-main-image">
             {selectedImage ? (
-              <img
+              <OptimizedImage
                 src={selectedImage}
                 alt={title}
                 width={800}
                 height={533}
-                loading="eager"
-                decoding="async"
+                priority
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 70vw, 600px"
               />
             ) : (
               <div className="auction-empty-image">No image available</div>
@@ -431,7 +472,13 @@ const AuctionDetail: React.FC = () => {
                   aria-label={thumbLabel(index)}
                   aria-pressed={selectedImage === img}
                 >
-                  <img src={img} alt="" width={70} height={70} loading="lazy" decoding="async" />
+                  <OptimizedImage
+                    src={img}
+                    alt=""
+                    width={70}
+                    height={70}
+                    sizes="70px"
+                  />
                 </button>
               ))}
             </div>
@@ -548,6 +595,28 @@ const AuctionDetail: React.FC = () => {
                 Update details or remove this listing. Bidders will see changes after you save.
               </p>
             </div>
+          )}
+
+          {(winner_email || seller_email) && (
+            <section className="auction-contact-card" aria-label="Post-auction contact details">
+              <h3>Contact details</h3>
+              {winner_email ? (
+                <>
+                  <p className="auction-contact-row">
+                    <strong>Winner name:</strong> {winner_name || "Unknown"}
+                  </p>
+                  <p className="auction-contact-row">
+                    <strong>Winner email:</strong>{" "}
+                    <a href={`mailto:${winner_email}`}>{winner_email}</a>
+                  </p>
+                </>
+              ) : null}
+              {seller_email ? (
+                <p className="auction-contact-row">
+                  <strong>Seller email:</strong> <a href={`mailto:${seller_email}`}>{seller_email}</a>
+                </p>
+              ) : null}
+            </section>
           )}
 
           {!is_seller && (

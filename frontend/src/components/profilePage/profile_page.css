@@ -68,6 +68,18 @@ body {
   max-width: 1180px;
   margin: 0 auto;
   padding: 20px 16px 40px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", sans-serif;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Keep profile typography aligned with app-wide defaults. */
+.profile-page button,
+.profile-page input,
+.profile-page select,
+.profile-page textarea {
+  font: inherit;
 }
 
 .profile-shell {
@@ -132,6 +144,47 @@ body {
 .navbar-link-button.active {
   color: #111827;
   background-color: #e5e7eb;
+}
+
+.navbar-link-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Mobile hamburger menu */
+.navbar-hamburger {
+  display: none;
+  flex-direction: column;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  gap: 4px;
+  grid-column: 2;
+}
+
+.navbar-hamburger span {
+  width: 24px;
+  height: 2px;
+  background: var(--text);
+  transition: all 200ms ease-out;
+}
+
+.navbar-hamburger[aria-expanded="true"] span:nth-child(1) {
+  transform: rotate(45deg) translate(10px, 10px);
+}
+
+.navbar-hamburger[aria-expanded="true"] span:nth-child(2) {
+  opacity: 0;
+}
+
+.navbar-hamburger[aria-expanded="true"] span:nth-child(3) {
+  transform: rotate(-45deg) translate(7px, -7px);
+}
+
+.navbar-hamburger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .navbar-logo {
@@ -252,13 +305,9 @@ body {
   display: flex;
   gap: 12px;
   align-items: center;
-  flex: 0 1 240px;
-  max-width: 280px;
+  flex: 1 1 340px;
+  max-width: 460px;
   min-width: 0;
-}
-
-.profile-header-actions {
-  flex-shrink: 0;
 }
 
 .profile-header-charts {
@@ -266,8 +315,8 @@ body {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 16px 40px;
-  flex: 3 1 min(520px, 100%);
+  gap: 10px 18px;
+  flex: 2 1 min(420px, 100%);
   min-width: min(100%, 300px);
 }
 
@@ -280,8 +329,8 @@ body {
 }
 
 .profile-mini-chart-visual {
-  width: 124px;
-  height: 124px;
+  width: 78px;
+  height: 78px;
   flex-shrink: 0;
 }
 
@@ -398,7 +447,19 @@ body {
   margin: 0;
   font-size: 0.82rem;
   color: var(--muted);
-  word-break: break-word;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.btn.ghost.profile-inline-edit-btn {
+  margin-top: 10px;
+  padding: 2px 7px !important;
+  font-size: 0.64rem !important;
+  font-weight: 5000!important;
+  line-height: 1.5;
+  display: inline-flex;
+  width: fit-content;
 }
 
 .profile-detail-grid {
@@ -610,7 +671,8 @@ body {
 }
 
 .listing-status.active,
-.bid-status.winning {
+.bid-status.winning,
+.bid-status.won {
   background: var(--success-soft);
   color: var(--success);
   border-color: var(--success);
@@ -628,7 +690,13 @@ body {
   border-color: var(--info);
 }
 
-.bid-status.outbid,
+.listing-status.unsold {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+.bid-status.bid_more,
 .bid-status.lost {
   background: var(--error-soft);
   color: var(--error);
@@ -980,6 +1048,19 @@ body {
   border-color: var(--primary);
 }
 
+.settings-group input[aria-invalid="true"] {
+  border-color: var(--error);
+  background-color: var(--error-soft);
+}
+
+.field-error {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--error);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
 .settings-group.inline {
   display: flex;
   justify-content: space-between;
@@ -1185,20 +1266,43 @@ body {
 /* Responsive */
 @media (max-width: 768px) {
   .profile-navbar {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
+  }
+
+  .navbar-hamburger {
+    display: flex;
   }
 
   .profile-navbar .navbar-links {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(249, 250, 251, 0.98);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid var(--border);
+    flex-direction: column;
+    padding: 12px;
+    gap: 8px;
+    border-radius: 0 0 12px 12px;
+    z-index: 10;
+  }
+
+  .profile-navbar .navbar-links.mobile-open {
+    display: flex;
+  }
+
+  .profile-navbar .navbar-link-button {
+    width: 100%;
+    text-align: left;
+    padding: 12px 16px;
+    border-radius: 8px;
   }
 
   .profile-header-top {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .profile-header-actions .btn.primary {
-    width: 100%;
   }
 
   .profile-header-content {
@@ -1217,8 +1321,8 @@ body {
   }
 
   .profile-mini-chart-visual {
-    width: 96px;
-    height: 96px;
+    width: 72px;
+    height: 72px;
   }
 
   .profile-actions {

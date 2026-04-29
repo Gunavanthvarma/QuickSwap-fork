@@ -57,6 +57,7 @@ export function mapTopListingsToStripItems(
     price: `Current bid: ${formatCurrency(item.current_bid)}`,
     image: item.image,
     tag,
+    ...(item.auction_end_time ? { endTime: item.auction_end_time } : {}),
   }));
 }
 

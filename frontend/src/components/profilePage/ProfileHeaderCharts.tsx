@@ -116,25 +116,25 @@ function MiniDonut({
 }
 
 function aggregateListings(listings: ListingCardItem[]) {
-  let active = 0;
   let sold = 0;
+  let unsold = 0;
   for (const L of listings) {
-    if (L.status === "active") active += 1;
-    else sold += 1;
+    if (L.status === "sold") sold += 1;
+    else if (L.status === "unsold") unsold += 1;
   }
-  return { active, sold };
+  return { sold, unsold };
 }
 
 function aggregateBids(bids: BidCardItem[]) {
-  let winning = 0;
+  let won = 0;
   let outbid = 0;
   let lost = 0;
   for (const b of bids) {
-    if (b.status === "winning") winning += 1;
+    if (b.status === "won" || b.status === "winning") won += 1;
     else if (b.status === "lost") lost += 1;
     else outbid += 1;
   }
-  return { winning, outbid, lost };
+  return { won, outbid, lost };
 }
 
 export interface ProfileHeaderChartsProps {
@@ -150,18 +150,18 @@ export function ProfileHeaderCharts({
   listingsLoading,
   bidsLoading,
 }: ProfileHeaderChartsProps) {
-  const { active, sold } = aggregateListings(listings);
-  const { winning, outbid, lost } = aggregateBids(bids);
+  const { sold, unsold } = aggregateListings(listings);
+  const { won, outbid, lost } = aggregateBids(bids);
 
   const listingSegments: Segment[] = [
-    { value: active, color: "#2563eb", label: "Active" },
-    { value: sold, color: "#94a3b8", label: "Sold" },
+    { value: sold, color: "#2563eb", label: "Sold" },
+    { value: unsold, color: "#9ca3af", label: "Unsold" },
   ];
 
   const bidSegments: Segment[] = [
-    { value: winning, color: "#16a34a", label: "Winning" },
-    { value: outbid, color: "#f59e0b", label: "Outbid" },
-    { value: lost, color: "#64748b", label: "Lost" },
+    { value: won, color: "#2563eb", label: "Won" },
+    { value: outbid, color: "#9ca3af", label: "Outbid" },
+    { value: lost, color: "#ef4444", label: "Lost" },
   ];
 
   return (

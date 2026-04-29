@@ -1,4 +1,5 @@
 import React from "react";
+import { OptimizedImage, CountdownTimer } from "../shared";
 
 export interface StripItem {
   id: string;
@@ -6,6 +7,7 @@ export interface StripItem {
   price: string;
   image: string;
   tag: string;
+  endTime?: string;
 }
 
 export type StripEmptyIllustration =
@@ -254,13 +256,12 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
             onClick={() => onViewItem(item.id)}
           >
             <div className="strip-image-wrap">
-              <img
+              <OptimizedImage
                 src={item.image}
                 alt={item.name}
                 width={220}
                 height={147}
-                loading="lazy"
-                decoding="async"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 45vw, 300px"
               />
               <span className="product-tag">{item.tag}</span>
             </div>
@@ -270,6 +271,11 @@ const TopListingsStrip: React.FC<TopListingsStripProps> = ({
                 <span className="product-price">{item.price}</span>
                 <span className="strip-card-link">View details</span>
               </div>
+              {item.endTime && (
+                <div className="strip-card-countdown">
+                  <CountdownTimer endTimeIso={item.endTime} />
+                </div>
+              )}
             </div>
           </article>
           ))}

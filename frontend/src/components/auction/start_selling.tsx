@@ -3,7 +3,10 @@ import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useSignInRedirect } from "../../auth/useSignInRedirect";
+import { useAuth } from "../../auth/useAuth";
 import { apiErrorMessage, authHeaders, getApiUrl, isFetchAborted, isRecord } from "../../lib/api";
+import { NotificationsBell } from "../notifications/NotificationsBell";
+import "../landingPage/landing_page.css";
 import "./start_selling.css";
 
 interface StartSellingForm {
@@ -150,9 +153,11 @@ const ExistingImagePreview: React.FC<{
 const StartSelling: React.FC = () => {
   const navigate = useNavigate();
   const redirectToSignin = useSignInRedirect();
+  const { logout } = useAuth();
   const { id: editRouteId } = useParams<{ id?: string }>();
   const isEditMode = Boolean(editRouteId);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [form, setForm] = useState<StartSellingForm>(() => ({ ...initialSellForm }));
 
   const [photos, setPhotos] = useState<File[]>([]);
@@ -485,13 +490,51 @@ const StartSelling: React.FC = () => {
       ? subcategoriesByCategory[form.category]
       : [];
 
+  const navbar = (
+    <header className="navbar">
+      <div className="navbar-logo" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
+        <span className="logo-text">Quickswap</span>
+      </div>
+      <button
+        type="button"
+        className="navbar-hamburger"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        aria-label="Toggle navigation menu"
+        aria-expanded={mobileMenuOpen}
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <nav
+        className={`navbar-links ${mobileMenuOpen ? "mobile-open" : ""}`}
+        aria-label="Primary"
+        role="navigation"
+      >
+        <button type="button" className="navbar-link-button" onClick={() => { navigate("/"); setMobileMenuOpen(false); }}>
+          Home
+        </button>
+        <button type="button" className="navbar-link-button" onClick={() => { navigate("/explore/trending"); setMobileMenuOpen(false); }}>
+          Explore
+        </button>
+      </nav>
+      <div className="navbar-actions">
+        <button type="button" className="btn ghost" onClick={() => navigate("/profile")}>
+          Profile
+        </button>
+        <button type="button" className="btn ghost" onClick={logout}>
+          Logout
+        </button>
+        <NotificationsBell />
+      </div>
+    </header>
+  );
+
   if (listingPublished || listingUpdated) {
     const successId = createdListingId || editRouteId;
     return (
       <div className="sell-page">
-        <button type="button" className="sell-back" onClick={() => navigate(-1)}>
-          ← Back
-        </button>
+        {navbar}
         <main id="main-content">
           <div className="sell-success-card" role="status" aria-live="polite">
             <h1 className="sell-success-title">{listingUpdated ? "Listing updated" : "Listing published"}</h1>
@@ -538,9 +581,7 @@ const StartSelling: React.FC = () => {
   if (isEditMode && editLoading) {
     return (
       <div className="sell-page">
-        <button type="button" className="sell-back" onClick={() => navigate(-1)}>
-          ← Back
-        </button>
+        {navbar}
         <main id="main-content">
           <div className="sell-success-card" role="status">
             <p className="sell-success-text" style={{ marginBottom: 0 }}>
@@ -554,9 +595,7 @@ const StartSelling: React.FC = () => {
 
   return (
     <div className="sell-page">
-      <button type="button" className="sell-back" onClick={() => navigate(-1)}>
-        ← Back
-      </button>
+      {navbar}
 
       <main id="main-content">
       <div className="sell-layout">
@@ -643,7 +682,7 @@ const StartSelling: React.FC = () => {
             {/* Basic info */}
             <div className="sell-field-group">
               <label htmlFor="sell-title">
-                Title
+                Title *
                 <input
                   id="sell-title"
                   type="text"
@@ -668,7 +707,7 @@ const StartSelling: React.FC = () => {
               </label>
 
               <label htmlFor="sell-description">
-                Detailed description
+                Detailed description *
                 <textarea
                   id="sell-description"
                   value={form.description}
@@ -686,7 +725,7 @@ const StartSelling: React.FC = () => {
             {/* Category & subcategory */}
             <div className="sell-two-column">
               <label htmlFor="sell-category">
-                Category
+                Category *
                 <select
                   id="sell-category"
                   value={form.category}
@@ -705,7 +744,7 @@ const StartSelling: React.FC = () => {
               </label>
 
               <label htmlFor="sell-subcategory">
-                Subcategory
+                Subcategory{!isEditMode ? " *" : ""}
                 <select
                   id="sell-subcategory"
                   value={form.subcategory}
@@ -783,7 +822,7 @@ const StartSelling: React.FC = () => {
 
             <div className="sell-two-column">
               <label htmlFor="sell-location-city">
-                City / Area
+                City / Area *
                 <input
                   id="sell-location-city"
                   type="text"
@@ -802,7 +841,7 @@ const StartSelling: React.FC = () => {
 
               <div className="sell-two-column">
                 <label htmlFor="sell-starting-bid">
-                  Starting bid
+                  Starting bid{!isEditMode ? " *" : ""}
                   <div className="sell-inline-input">
                     <span className="sell-prefix">$</span>
                     <input
@@ -851,7 +890,7 @@ const StartSelling: React.FC = () => {
                 </label>
 
                 <label htmlFor="sell-end-time">
-                  Auction end time
+                  Auction end time *
                   <input
                     id="sell-end-time"
                     type="datetime-local"

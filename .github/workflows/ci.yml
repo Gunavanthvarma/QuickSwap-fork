@@ -1,6 +1,7 @@
 name: Go CI (Deprecated)
 
-on: [] # Empty array means this will never trigger automatically
+on:
+  push:
 
 jobs:
   deprecated:

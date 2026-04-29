@@ -1,8 +1,10 @@
 // LandingPage.tsx
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
+import { OptimizedImage } from "../shared";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import "./landing_page.css";
-// import Signup from './components/authenticate/Signup';
 
 const mockListings = [
   {
@@ -42,6 +44,7 @@ const mockListings = [
 const LandingPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -55,17 +58,41 @@ const LandingPage = () => {
     navigate("/start_selling");
   };
 
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   return (
     <div className="landing">
+      {/* Skip navigation link */}
+      <a href="#main-content" className="skip-to-main">
+        Skip to main content
+      </a>
+
       {/* Navbar */}
       <header className="navbar">
-        <div className="navbar-logo">
+        <div className="navbar-logo" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           <span className="logo-text">Quickswap</span>
         </div>
-        <nav className="navbar-links" aria-label="Primary">
-          <a href="#features">How it works</a>
-          <a href="#auctions">Live auctions</a>
-          {!isAuthenticated && (<a href="#about">Why Quickswap</a>)}
+        <button
+          type="button"
+          className="navbar-hamburger"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle navigation menu"
+          aria-expanded={mobileMenuOpen}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <nav
+          className={`navbar-links ${mobileMenuOpen ? 'mobile-open' : ''}`}
+          aria-label="Primary"
+          role="navigation"
+        >
+          <a href="#features" onClick={closeMobileMenu}>How it works</a>
+          <a href="#auctions" onClick={closeMobileMenu}>Live auctions</a>
+          {!isAuthenticated && (<a href="#about" onClick={closeMobileMenu}>Why Quickswap</a>)}
         </nav>
         <div className="navbar-actions">
           <button type="button" className="btn primary" onClick={handleStartSelling}>
@@ -79,6 +106,7 @@ const LandingPage = () => {
               <button type="button" className="btn ghost" onClick={handleLogout}>
                 Logout
               </button>
+              <NotificationsBell />
             </>
           ) : (
             <button type="button" className="btn ghost" onClick={() => navigate("/signin")}>
@@ -125,13 +153,13 @@ const LandingPage = () => {
 
         <div className="hero-visual">
           <div className="hero-card main">
-            <img
+            <OptimizedImage
               src="https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=800"
               alt="People collaborating at a laptop during a live auction-style session"
               width={800}
               height={533}
-              decoding="async"
-              fetchPriority="high"
+              priority
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 600px"
             />
             <div className="hero-tag">
               Live bid · 00:03:21 left · 17 active bidders
@@ -189,13 +217,12 @@ const LandingPage = () => {
           {mockListings.map((listing) => (
             <article key={listing.id} className="product-card">
               <div className="product-image-wrap">
-                <img
+                <OptimizedImage
                   src={listing.image}
                   alt={listing.name}
                   width={600}
                   height={400}
-                  loading="lazy"
-                  decoding="async"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 350px"
                 />
                 <span className="product-tag">{listing.tag}</span>
               </div>

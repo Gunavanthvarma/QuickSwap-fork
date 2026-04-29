@@ -18,10 +18,71 @@
   padding: 4px 0;
   cursor: pointer;
   margin-bottom: 10px;
+  transition: color 160ms ease-out;
 }
 
 .auction-back:hover {
   color: #111827;
+}
+
+.auction-back:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Breadcrumb navigation */
+.auction-breadcrumb {
+  margin-bottom: 16px;
+}
+
+.breadcrumb-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.breadcrumb-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.breadcrumb-separator {
+  color: #d1d5db;
+  margin: 0 4px;
+}
+
+.breadcrumb-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  transition: color 160ms ease-out, background-color 160ms ease-out;
+}
+
+.breadcrumb-link:hover {
+  color: #1d4ed8;
+  background-color: rgba(37, 99, 235, 0.05);
+  text-decoration: none;
+}
+
+.breadcrumb-link:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.breadcrumb-current {
+  color: #6b7280;
+  padding: 4px 8px;
 }
 
 /* Main layout: two columns */
@@ -315,6 +376,30 @@
   color: #6b7280;
   max-width: 420px;
   line-height: 1.4;
+}
+
+.auction-contact-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.auction-contact-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.auction-contact-row {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.auction-contact-row:last-child {
+  margin-bottom: 0;
 }
 
 /* Delete confirmation modal */

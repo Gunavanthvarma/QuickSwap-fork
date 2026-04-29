@@ -397,6 +397,7 @@ func getSingleListing(w http.ResponseWriter, r *http.Request) {
 
 	// --- Fetch seller profile ---
 	sellerName := "Unknown"
+	sellerEmail := ""
 	profileURL := supaURL + "/rest/v1/profiles?id=eq." + l.SellerID
 	reqProfile, _ := http.NewRequest("GET", profileURL, nil)
 	reqProfile.Header.Set("apikey", apiKey)
@@ -408,9 +409,11 @@ func getSingleListing(w http.ResponseWriter, r *http.Request) {
 		var profiles []struct {
 			FirstName string `json:"first_name"`
 			LastName  string `json:"last_name"`
+			Email     string `json:"email"`
 		}
 		if err := json.NewDecoder(respProfile.Body).Decode(&profiles); err == nil && len(profiles) > 0 {
 			sellerName = profiles[0].FirstName + " " + profiles[0].LastName
+			sellerEmail = profiles[0].Email
 		}
 		respProfile.Body.Close()
 	}
@@ -468,6 +471,34 @@ func getSingleListing(w http.ResponseWriter, r *http.Request) {
 		status = "ended"
 	}
 
+	// Post-auction contact visibility:
+	// - Seller can see winner's name + email after auction ended.
+	// - Winning bidder can see seller's email after auction ended.
+	showSellerEmailToWinner := status == "ended" && callerID != "" && callerID == highestBidderID
+	showWinnerContactToSeller := status == "ended" && callerID != "" && callerID == l.SellerID && highestBidderID != ""
+	winnerName := ""
+	winnerEmail := ""
+	if showWinnerContactToSeller {
+		winnerProfileURL := supaURL + "/rest/v1/profiles?id=eq." + highestBidderID
+		reqWinnerProfile, _ := http.NewRequest("GET", winnerProfileURL, nil)
+		reqWinnerProfile.Header.Set("apikey", apiKey)
+		reqWinnerProfile.Header.Set("Authorization", "Bearer "+apiKey)
+		reqWinnerProfile.Header.Set("Content-Type", "application/json")
+		respWinnerProfile, wErr := http.DefaultClient.Do(reqWinnerProfile)
+		if wErr == nil && respWinnerProfile.StatusCode == http.StatusOK {
+			var winnerProfiles []struct {
+				FirstName string `json:"first_name"`
+				LastName  string `json:"last_name"`
+				Email     string `json:"email"`
+			}
+			if decErr := json.NewDecoder(respWinnerProfile.Body).Decode(&winnerProfiles); decErr == nil && len(winnerProfiles) > 0 {
+				winnerName = winnerProfiles[0].FirstName + " " + winnerProfiles[0].LastName
+				winnerEmail = winnerProfiles[0].Email
+			}
+			respWinnerProfile.Body.Close()
+		}
+	}
+
 	image := ""
 	if len(l.Images) > 0 {
 		image = l.Images[0]
@@ -502,6 +533,24 @@ func getSingleListing(w http.ResponseWriter, r *http.Request) {
 		"location":           l.Location,
 		"condition":          l.Condition,
 		"brand":              l.Brand,
+		"seller_email":       func() string {
+			if showSellerEmailToWinner {
+				return sellerEmail
+			}
+			return ""
+		}(),
+		"winner_name": func() string {
+			if showWinnerContactToSeller {
+				return winnerName
+			}
+			return ""
+		}(),
+		"winner_email": func() string {
+			if showWinnerContactToSeller {
+				return winnerEmail
+			}
+			return ""
+		}(),
 	})
 }
 

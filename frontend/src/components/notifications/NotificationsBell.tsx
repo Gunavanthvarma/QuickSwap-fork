@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { useSignInRedirect } from "../../auth/useSignInRedirect";
+import { LoadingSpinner } from "../shared";
 import {
   fetchNotifications,
   fetchUnreadNotificationCount,
@@ -29,15 +30,23 @@ export const NotificationsBell: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [badgeNew, setBadgeNew] = useState(false);
+  const prevUnreadRef = useRef(0);
 
   const refreshCount = useCallback(async () => {
     const token = localStorage.getItem("accessToken");
     if (!token) return;
     try {
       const n = await fetchUnreadNotificationCount(token);
+      if (n > prevUnreadRef.current) {
+        setBadgeNew(true);
+        window.setTimeout(() => setBadgeNew(false), 2000);
+      }
       setUnreadCount(n);
-    } catch {
-      /* ignore poll errors */
+      prevUnreadRef.current = n;
+    } catch (err) {
+      // Silently ignore errors - notifications table may not exist yet
+      console.debug("Notification count fetch error (expected if table not created):", err);
     }
   }, []);
 
@@ -54,7 +63,13 @@ export const NotificationsBell: React.FC = () => {
       setItems(list);
       await refreshCount();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load notifications");
+      // Be more descriptive about the error
+      const errorMsg = err instanceof Error ? err.message : "Failed to load notifications";
+      if (errorMsg.includes("404") || errorMsg.includes("not found")) {
+        setError("Notifications feature is not yet set up. Please contact support.");
+      } else {
+        setError(errorMsg);
+      }
       setItems([]);
     } finally {
       setLoading(false);
@@ -161,7 +176,7 @@ export const NotificationsBell: React.FC = () => {
           <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
         </svg>
         {unreadCount > 0 ? (
-          <span className="notif-bell-badge" aria-hidden>
+          <span className={`notif-bell-badge${badgeNew ? ' notif-bell-badge--new' : ''}`} aria-hidden>
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         ) : null}
@@ -177,14 +192,17 @@ export const NotificationsBell: React.FC = () => {
               </button>
             ) : null}
           </div>
-          {loading ? <div className="notif-panel-loading">Loading…</div> : null}
+          {loading ? <LoadingSpinner size="small" message="Loading notifications..." /> : null}
           {error ? (
             <div className="notif-panel-error" role="alert">
               {error}
             </div>
           ) : null}
           {!loading && !error && items.length === 0 ? (
-            <div className="notif-panel-empty">No notifications yet.</div>
+            <div className="notif-panel-empty" role="status">
+              <span className="notif-empty-icon" aria-hidden="true">🔔</span>
+              <span>No notifications yet.</span>
+            </div>
           ) : null}
           <ul className="notif-list">
             {items.map((n) => (

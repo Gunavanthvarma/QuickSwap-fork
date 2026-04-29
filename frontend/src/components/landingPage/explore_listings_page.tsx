@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { ErrorAlert, SkeletonGrid } from "../shared";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 import "./landing_page.css";
 import "./loggedin_landing_page.css";
 import TopListingsStrip from "./top_listings_strip";
@@ -36,16 +38,14 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
   return (
     <div className="landing">
       <header className="navbar" aria-label="Explore listings">
-        <div className="navbar-logo">
+        <div className="navbar-logo" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           <span className="logo-text">Quickswap</span>
         </div>
         <div className="navbar-actions">
-          <button type="button" className="btn ghost" onClick={() => navigate(-1)}>
-            Back
-          </button>
           <button type="button" className="btn ghost" onClick={() => navigate("/profile")}>
             Profile
           </button>
+          <NotificationsBell />
         </div>
       </header>
 
@@ -57,8 +57,20 @@ const ExploreListingsPage: React.FC<ExploreListingsPageProps> = ({ mode }) => {
         </div>
       </section>
 
-      {isPending && <section className="strip-section">Loading auctions...</section>}
-      {!isPending && listError && <section className="strip-section">{listError}</section>}
+      {isPending && (
+        <section className="strip-section">
+          <SkeletonGrid variant="strip-card" count={6} />
+        </section>
+      )}
+      {!isPending && listError && (
+        <section className="strip-section">
+          <ErrorAlert
+            title="Failed to load auctions"
+            message={listError}
+            fullWidth
+          />
+        </section>
+      )}
       {!isPending && !listError && data && (
         <TopListingsStrip
           title={pageTitle}

@@ -135,8 +135,6 @@ func updateProfileHandler(_ *auth.Client) http.HandlerFunc {
 			FirstName string `json:"first_name"`
 			LastName  string `json:"last_name"`
 			Mobile    string `json:"mobile"`
-			Bio       string `json:"bio"`
-			Location  string `json:"location"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			respondError(w, "Invalid request body", http.StatusBadRequest)
@@ -150,8 +148,6 @@ func updateProfileHandler(_ *auth.Client) http.HandlerFunc {
 			"first_name": req.FirstName,
 			"last_name":  req.LastName,
 			"mobile":     req.Mobile,
-			"bio":        req.Bio,
-			"location":   req.Location,
 		}
 		b, _ := json.Marshal(payload)
 		patchReq, _ := http.NewRequest("PATCH", url, bytes.NewReader(b))

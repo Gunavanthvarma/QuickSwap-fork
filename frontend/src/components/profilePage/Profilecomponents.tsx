@@ -4,6 +4,8 @@ import { deleteListing } from "../../lib/listingApi";
 import { NotificationsBell } from "../notifications/NotificationsBell";
 import { AddressDetailsSection, PaymentDetailsSection } from "./SettingsAddressPayment";
 import { StripEmptyStateView } from "../landingPage/top_listings_strip";
+import { OptimizedImage, ErrorAlert, SkeletonGrid, useToast } from "../shared";
+import { isValidPhone } from "../../utils/validation";
 import type {
   ProfileResponse,
   EditFormState,
@@ -17,18 +19,34 @@ import type {
 
 export const ProfileNavbar: React.FC = () => {
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   return (
     <header className="profile-navbar">
       <div className="profile-navbar-left">
-        <button type="button" className="profile-back-pill" onClick={() => navigate("/")}>← Back</button>
-        <div className="navbar-logo">
+        <div className="navbar-logo" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
           <span className="logo-text">Quickswap</span>
         </div>
       </div>
-      <nav className="navbar-links" aria-label="Profile">
-        <button type="button" className="navbar-link-button" onClick={() => navigate("/")}>Browse</button>
-        <button type="button" className="navbar-link-button" onClick={() => navigate("/start_selling")}>Sell</button>
-        <button type="button" className="navbar-link-button active" onClick={() => navigate("/profile")}>Profile</button>
+      <button
+        type="button"
+        className="navbar-hamburger"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        aria-label="Toggle navigation menu"
+        aria-expanded={mobileMenuOpen}
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <nav className={`navbar-links ${mobileMenuOpen ? 'mobile-open' : ''}`} aria-label="Profile" role="navigation">
+        <button type="button" className="navbar-link-button" onClick={() => { navigate("/"); closeMobileMenu(); }}>Browse</button>
+        <button type="button" className="navbar-link-button" onClick={() => { navigate("/start_selling"); closeMobileMenu(); }}>Sell</button>
+        <button type="button" className="navbar-link-button active" onClick={() => { navigate("/profile"); closeMobileMenu(); }}>Profile</button>
       </nav>
       <div className="navbar-actions">
         <NotificationsBell />
@@ -85,11 +103,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   activityCharts,
 }) => {
   const initials = profileDisplayInitials(user, displayName);
-  const memberDetail = formatMemberSinceDetailed(user.created_at);
-  const memberShort = formatMemberSinceLabel(user.created_at);
-  const mobile = user.mobile?.trim();
-  const location = user.location?.trim();
-  const bio = user.bio?.trim();
 
   return (
     <section className="profile-header" aria-labelledby="profile-display-name">
@@ -104,50 +117,15 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           <div className="profile-info">
             <h1 id="profile-display-name">{displayName}</h1>
             <p className="profile-username">{user.email}</p>
+            {onEditProfile ? (
+              <button type="button" className="btn ghost profile-inline-edit-btn" onClick={onEditProfile}>
+                Edit profile
+              </button>
+            ) : null}
           </div>
         </div>
         {activityCharts}
-        {onEditProfile ? (
-          <div className="profile-header-actions">
-            <button type="button" className="btn primary" onClick={onEditProfile}>
-              Edit profile
-            </button>
-          </div>
-        ) : null}
       </div>
-
-      <dl className="profile-detail-grid">
-        <div className="profile-detail-item">
-          <dt>Member since</dt>
-          <dd>
-            {memberDetail ? (
-              <span className="profile-detail-primary">{memberDetail}</span>
-            ) : memberShort ? (
-              <span className="profile-detail-primary">{memberShort}</span>
-            ) : (
-              <span className="profile-detail-muted">Not available yet</span>
-            )}
-          </dd>
-        </div>
-        <div className="profile-detail-item">
-          <dt>Phone</dt>
-          <dd>{mobile ? mobile : <span className="profile-detail-muted">Not set</span>}</dd>
-        </div>
-        <div className="profile-detail-item">
-          <dt>Location</dt>
-          <dd>{location ? location : <span className="profile-detail-muted">Not set</span>}</dd>
-        </div>
-        <div className="profile-detail-item">
-          <dt>About</dt>
-          <dd>
-            {bio ? (
-              <p className="profile-bio-text">{bio}</p>
-            ) : (
-              <span className="profile-detail-muted">No bio yet.</span>
-            )}
-          </dd>
-        </div>
-      </dl>
     </section>
   );
 };
@@ -218,12 +196,67 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   saveError,
   saving = false,
 }) => {
+  const toast = useToast();
   const [showSuccess, setShowSuccess] = React.useState(false);
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+
+  const validateField = (field: string, value: string) => {
+    const errors: Record<string, string> = { ...fieldErrors };
+
+    switch (field) {
+      case 'first_name':
+        if (!value.trim()) {
+          errors.first_name = 'First name is required';
+        } else {
+          delete errors.first_name;
+        }
+        break;
+      case 'last_name':
+        if (!value.trim()) {
+          errors.last_name = 'Last name is required';
+        } else {
+          delete errors.last_name;
+        }
+        break;
+      case 'mobile':
+        if (!value.trim()) {
+          errors.mobile = 'Phone number is required';
+        } else if (!isValidPhone(value)) {
+          errors.mobile = 'Please enter a valid phone number (10-15 digits)';
+        } else {
+          delete errors.mobile;
+        }
+        break;
+    }
+
+    setFieldErrors(errors);
+    return errors;
+  };
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, saving]);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validate all fields before submit
+    const allErrors = {
+      ...validateField('first_name', editForm.first_name),
+      ...validateField('last_name', editForm.last_name),
+      ...validateField('mobile', editForm.mobile),
+    };
+    if (Object.keys(allErrors).length > 0) return;
     const ok = await onSubmit(e);
-    if (ok) setShowSuccess(true);
+    if (ok) {
+      toast.success('Profile updated successfully');
+      setShowSuccess(true);
+    }
   };
 
   if (showSuccess) {
@@ -267,8 +300,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={editForm.first_name}
               required
               disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))}
+              onChange={(e) => {
+                setEditForm((prev) => ({ ...prev, first_name: e.target.value }));
+                validateField('first_name', e.target.value);
+              }}
+              aria-invalid={!!fieldErrors.first_name}
+              aria-describedby={fieldErrors.first_name ? 'error-first-name' : undefined}
             />
+            {fieldErrors.first_name && (
+              <span id="error-first-name" className="field-error">{fieldErrors.first_name}</span>
+            )}
           </div>
           <div className="settings-group">
             <label htmlFor="edit-last-name">Last Name</label>
@@ -278,8 +319,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={editForm.last_name}
               required
               disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))}
+              onChange={(e) => {
+                setEditForm((prev) => ({ ...prev, last_name: e.target.value }));
+                validateField('last_name', e.target.value);
+              }}
+              aria-invalid={!!fieldErrors.last_name}
+              aria-describedby={fieldErrors.last_name ? 'error-last-name' : undefined}
             />
+            {fieldErrors.last_name && (
+              <span id="error-last-name" className="field-error">{fieldErrors.last_name}</span>
+            )}
           </div>
           <div className="settings-group">
             <label htmlFor="edit-mobile">Phone number</label>
@@ -289,8 +338,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={editForm.mobile}
               required
               disabled={saving}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, mobile: e.target.value }))}
+              onChange={(e) => {
+                setEditForm((prev) => ({ ...prev, mobile: e.target.value }));
+                validateField('mobile', e.target.value);
+              }}
+              aria-invalid={!!fieldErrors.mobile}
+              aria-describedby={fieldErrors.mobile ? 'error-mobile' : undefined}
             />
+            {fieldErrors.mobile && (
+              <span id="error-mobile" className="field-error">{fieldErrors.mobile}</span>
+            )}
           </div>
           <div className="settings-group">
             <label htmlFor="edit-email-readonly">Email address</label>
@@ -333,13 +390,27 @@ export const UpdatePasswordModal: React.FC<UpdatePasswordModalProps> = ({
   updateError,
   saving = false,
 }) => {
+  const toast = useToast();
   const [showSuccess, setShowSuccess] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving && !showSuccess) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, saving, showSuccess]);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
     const ok = await onSubmit(e);
-    if (ok) setShowSuccess(true);
+    if (ok) {
+      toast.success('Password updated successfully');
+      setShowSuccess(true);
+    }
   };
 
   if (showSuccess) {
@@ -442,38 +513,50 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   phraseError,
   onKeep,
   onDelete,
-}) => (
-  <div className="edit-profile-modal-overlay">
-    <div className="edit-profile-modal-content">
-      <h2>Delete account</h2>
-      <p className="delete-account-prompt">Are you sure you want to delete the account?</p>
-      <div className="settings-group">
-        <label htmlFor="delete-account-confirm">Type <strong>Delete</strong> to confirm</label>
-        <input
-          id="delete-account-confirm"
-          type="text"
-          autoComplete="off"
-          value={confirmPhrase}
-          onChange={(e) => setConfirmPhrase(e.target.value)}
-          placeholder="Delete"
-        />
-      </div>
-      {phraseError ? (
-        <p className="edit-profile-error" role="alert">
-          {phraseError}
-        </p>
-      ) : null}
-      <div className="edit-profile-actions">
-        <button type="button" className="btn ghost" onClick={onKeep}>
-          Keep
-        </button>
-        <button type="button" className="btn danger" onClick={onDelete}>
-          Delete
-        </button>
+}) => {
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onKeep();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onKeep]);
+
+  return (
+    <div className="edit-profile-modal-overlay">
+      <div className="edit-profile-modal-content">
+        <h2>Delete account</h2>
+        <p className="delete-account-prompt">Are you sure you want to delete the account?</p>
+        <div className="settings-group">
+          <label htmlFor="delete-account-confirm">Type <strong>Delete</strong> to confirm</label>
+          <input
+            id="delete-account-confirm"
+            type="text"
+            autoComplete="off"
+            value={confirmPhrase}
+            onChange={(e) => setConfirmPhrase(e.target.value)}
+            placeholder="Delete"
+          />
+        </div>
+        {phraseError ? (
+          <p className="edit-profile-error" role="alert">
+            {phraseError}
+          </p>
+        ) : null}
+        <div className="edit-profile-actions">
+          <button type="button" className="btn ghost" onClick={onKeep}>
+            Keep
+          </button>
+          <button type="button" className="btn danger" onClick={onDelete}>
+            Delete
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── DeleteAccountFinalModal (step 2) ─────────────────────────────────────────
 
@@ -489,34 +572,46 @@ export const DeleteAccountFinalModal: React.FC<DeleteAccountFinalModalProps> = (
   onYes,
   error,
   deleting = false,
-}) => (
-  <div className="edit-profile-modal-overlay">
-    <div className="edit-profile-modal-content">
-      <h2>Delete account</h2>
-      <p className="delete-account-prompt">Are you sure you want to delete account?</p>
-      {error ? (
-        <p className="edit-profile-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <div className="edit-profile-actions">
-        <button type="button" className="btn ghost" onClick={onNo} disabled={deleting}>
-          No
-        </button>
-        <button
-          type="button"
-          className="btn danger"
-          disabled={deleting}
-          onClick={() => {
-            void onYes();
-          }}
-        >
-          {deleting ? "Deleting…" : "Yes"}
-        </button>
+}) => {
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !deleting) {
+        onNo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onNo, deleting]);
+
+  return (
+    <div className="edit-profile-modal-overlay">
+      <div className="edit-profile-modal-content">
+        <h2>Delete account</h2>
+        <p className="delete-account-prompt">Are you sure you want to delete account?</p>
+        {error ? (
+          <p className="edit-profile-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="edit-profile-actions">
+          <button type="button" className="btn ghost" onClick={onNo} disabled={deleting}>
+            No
+          </button>
+          <button
+            type="button"
+            className="btn danger"
+            disabled={deleting}
+            onClick={() => {
+              void onYes();
+            }}
+          >
+            {deleting ? "Deleting…" : "Yes"}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── ListingsTab ──────────────────────────────────────────────────────────────
 
@@ -549,8 +644,8 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
     }
   };
 
-  if (loading) return <div>Loading your listings...</div>;
-  if (error) return <div>{error}</div>;
+  if (loading) return <SkeletonGrid variant="listing-card" count={4} />;
+  if (error) return <ErrorAlert message={error} title="Could not load listings" />;
   if (listings.length === 0) {
     return (
       <div className="profile-listings-empty">
@@ -586,16 +681,18 @@ export const ListingsTab: React.FC<ListingsTabProps> = ({ listings, loading, err
             }}
           >
             <div className="listing-image-wrap">
-              <img
+              <OptimizedImage
                 src={listing.image}
-                alt=""
+                alt={listing.name}
                 width={400}
                 height={225}
-                loading="lazy"
-                decoding="async"
               />
               <span className={`listing-status ${listing.status}`}>
-                {listing.status === "active" ? "Active" : "Ended"}
+                {listing.status === "active"
+                  ? "Active"
+                  : listing.status === "sold"
+                    ? "Sold"
+                    : "Unsold"}
               </span>
             </div>
             <div className="listing-body">
@@ -655,8 +752,8 @@ interface BidsTabProps {
 
 export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
   const navigate = useNavigate();
-  if (loading) return <div>Loading your bids...</div>;
-  if (error) return <div>{error}</div>;
+  if (loading) return <SkeletonGrid variant="bid-card" count={4} />;
+  if (error) return <ErrorAlert message={error} title="Could not load bids" />;
   if (bids.length === 0) {
     return (
       <div className="profile-bids-empty">
@@ -664,6 +761,8 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
           <StripEmptyStateView
             config={{
               illustration: "no-bids",
+              title: "No bids placed yet",
+              description: "Explore auctions and place your first bid.",
               ctaLabel: "Browse live auctions",
               onCta: () => navigate("/"),
             }}
@@ -692,17 +791,16 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
           }}
         >
           <div className="bid-image-wrap">
-            <img
+            <OptimizedImage
               src={bid.image}
-              alt=""
+              alt={bid.name}
               width={400}
               height={225}
-              loading="lazy"
-              decoding="async"
             />
             <span className={`bid-status ${bid.status}`}>
+              {bid.status === "won" && "Won"}
               {bid.status === "winning" && "Winning"}
-              {bid.status === "outbid" && "Outbid"}
+              {bid.status === "bid_more" && "Bid more"}
               {bid.status === "lost" && "Lost"}
             </span>
           </div>
@@ -728,7 +826,7 @@ export const BidsTab: React.FC<BidsTabProps> = ({ bids, loading, error }) => {
               </div>
             )}
             <div className="bid-actions">
-              {bid.status === "outbid" && <span className="btn primary" style={{ display: "block", textAlign: "center" }}>Place higher bid</span>}
+              {bid.status === "bid_more" && <span className="btn primary" style={{ display: "block", textAlign: "center" }}>Place higher bid</span>}
               {bid.status === "winning" && <span className="btn ghost" style={{ display: "block", textAlign: "center" }}>View auction</span>}
               {bid.status === "lost" && <span className="btn ghost" style={{ display: "block", textAlign: "center" }}>View details</span>}
             </div>

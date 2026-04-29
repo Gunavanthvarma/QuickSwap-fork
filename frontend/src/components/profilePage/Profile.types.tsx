@@ -6,8 +6,6 @@ export interface ProfileResponse {
   mobile?: string;
   /** ISO timestamp from `profiles.created_at` when returned by the API */
   created_at?: string;
-  /** Optional `profiles.bio` — add column in Supabase if missing */
-  bio?: string;
   /** Optional `profiles.location` (city, region, etc.) */
   location?: string;
 }
@@ -60,7 +58,7 @@ export interface ListingCardItem {
   currentBid: string;
   timeLeft: string;
   bids: number;
-  status: "active" | "sold";
+  status: "active" | "sold" | "unsold";
 }
 
 export interface BidCardItem {
@@ -70,7 +68,7 @@ export interface BidCardItem {
   yourBid: string;
   currentBid: string;
   timeLeft: string;
-  status: "winning" | "outbid" | "lost";
+  status: "winning" | "bid_more" | "lost" | "won";
 }
 
 export interface EditFormState {

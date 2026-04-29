@@ -11,6 +11,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
+import { initWebVitals } from './utils/webVitals'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,6 +20,9 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// Initialize Web Vitals monitoring
+initWebVitals().catch(console.error)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
