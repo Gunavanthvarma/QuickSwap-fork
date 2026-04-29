@@ -315,10 +315,12 @@
 
 /* Active navigation link indicator */
 .nav-link-active {
-  color: var(--primary) !important;
-  font-weight: 600;
-  border-bottom: 2px solid var(--primary);
-  padding-bottom: 4px;
+  color: var(--text) !important;
+  font-weight: 500;
+  border-bottom: none;
+  padding-bottom: 6px;
+  background-color: rgba(209, 213, 219, 0.35);
+  border-radius: 999px;
 }
 
 /* Mobile menu open styles */
