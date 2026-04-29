@@ -1,30 +1,9 @@
-name: Go CI
+name: Go CI (Deprecated)
 
-on:
-  push:
-    branches: [ "main", "gunavanth-sp2", "niveditha-sp2" ]
-  pull_request:
-    branches: [ "main", "gunavanth-sp2", "niveditha-sp2"]
+on: [] # Empty array means this will never trigger automatically
 
 jobs:
-  build:
+  deprecated:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.21'
-        cache: true
-
-    - name: Install dependencies
-      run: go mod download
-
-    - name: Build
-      run: go build -v ./cmd/server
-
-    - name: Test
-      run: go test -v -cover ./...
-
-
+      - run: echo "This workflow has been replaced by backend-ci.yml and frontend-ci.yml. Delete this file later."
